@@ -1,0 +1,17 @@
+node_modules
+.DS_Store
+.env
+.env.local
+.env.*.local
+.expo
+.next
+dist
+build
+ios/Pods
+android/.gradle
+.turbo
+*.log
+coverage
+.vscode/settings.json
+supabase/.branches
+supabase/.temp
