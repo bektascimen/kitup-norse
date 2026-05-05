@@ -48,7 +48,7 @@ export default function Why() {
         </Animated.Text>
       </View>
       <Animated.View entering={FadeInUp.delay(800).duration(700)} style={styles.ctaWrap}>
-        <Pressable style={styles.cta} onPress={() => router.push('/(onboarding)/language')}>
+        <Pressable style={styles.cta} onPress={() => router.push('/(onboarding)/path')}>
           <Text style={styles.ctaText}>{t('onboarding.cta.continue')}</Text>
           <Text style={styles.ctaRune}> ›</Text>
         </Pressable>
