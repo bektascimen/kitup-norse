@@ -298,14 +298,15 @@ secret = "env(APPLE_SECRET_KEY)"
 
 - [ ] **Step 4: Write `.env.example`**
 
+The `service_role` key is intentionally absent — see the security rule in §3 of the design spec. Clients use the publishable key only; Edge Functions pass through the caller's JWT.
+
 ```env
 # Supabase
 SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_PROJECT_REF=
 
-# Gemini
+# Gemini (Edge Function secret only — never exposed to clients)
 GEMINI_API_KEY=
 
 # Apple Sign-In (Edge config)
@@ -1050,10 +1051,10 @@ export type Kitup = SupabaseClient<Database>;
 
 export function createBrowserClient(args: {
   url: string;
-  anonKey: string;
+  publishableKey: string;
   storage?: any;
 }): Kitup {
-  return createClient<Database>(args.url, args.anonKey, {
+  return createClient<Database>(args.url, args.publishableKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -1067,16 +1068,25 @@ export function createBrowserClient(args: {
 
 - [ ] **Step 4: Write `packages/supabase-clients/src/edge.ts`**
 
+Edge Functions never touch the `service_role` key. Instead, every Edge Function receives the caller's JWT in the `Authorization` header and operates as that user (RLS applies). For admin-only flows we additionally check `auth.users.app_metadata.role = 'admin'` before doing anything.
+
 ```ts
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@kitup/shared-types';
 
-export function createEdgeClient(args: {
+/**
+ * Build a per-request Supabase client that acts as the caller.
+ * `authHeader` is the raw `Authorization: Bearer <jwt>` value from the
+ * incoming Edge Function request. RLS enforces all permissions.
+ */
+export function createCallerClient(args: {
   url: string;
-  serviceRoleKey: string;
+  publishableKey: string;
+  authHeader: string;
 }): SupabaseClient<Database> {
-  return createClient<Database>(args.url, args.serviceRoleKey, {
+  return createClient<Database>(args.url, args.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { authorization: args.authHeader } },
   });
 }
 ```
@@ -1401,7 +1411,7 @@ function required(name: string): string {
 
 export const env = {
   supabaseUrl: required('SUPABASE_URL'),
-  supabaseAnonKey: required('SUPABASE_ANON_KEY'),
+  supabasePublishableKey: required('SUPABASE_PUBLISHABLE_KEY'),
 };
 ```
 
@@ -1411,7 +1421,7 @@ Inside the `expo` block, add:
 ```json
 "extra": {
   "SUPABASE_URL": process.env.SUPABASE_URL,
-  "SUPABASE_ANON_KEY": process.env.SUPABASE_ANON_KEY
+  "SUPABASE_PUBLISHABLE_KEY": process.env.SUPABASE_PUBLISHABLE_KEY
 }
 ```
 (If `app.json`, switch to `app.config.ts` so JS expressions are valid; the create-expo template generally uses `app.json` — convert it.)
@@ -1436,7 +1446,7 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
   extra: {
     SUPABASE_URL: process.env.SUPABASE_URL,
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+    SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
   },
 };
 export default config;
@@ -1445,6 +1455,8 @@ Delete `apps/mobile/app.json` after this.
 
 - [ ] **Step 5: Write `apps/mobile/lib/supabase.ts`**
 
+The mobile client uses the publishable key only. RLS gates everything; the user signs in (anonymously at first, then optionally Apple/email) and Supabase issues a JWT scoped to that user.
+
 ```ts
 import { createBrowserClient } from '@kitup/supabase-clients';
 import { env } from './env';
@@ -1452,7 +1464,7 @@ import { mmkvStorageAdapter } from './storage';
 
 export const supabase = createBrowserClient({
   url: env.supabaseUrl,
-  anonKey: env.supabaseAnonKey,
+  publishableKey: env.supabasePublishableKey,
   storage: mmkvStorageAdapter,
 });
 ```
@@ -1848,6 +1860,8 @@ git commit -m "feat(admin): tailwind theme + shadcn primitives"
 
 - [ ] **Step 1: Write `apps/admin/src/lib/env.ts`**
 
+The admin web only ever talks to Supabase as the signed-in admin user (their JWT carries `role=admin`). RLS on protected tables permits the writes. There is no `service_role` key on this surface.
+
 ```ts
 function required(name: string): string {
   const v = process.env[name];
@@ -1857,8 +1871,7 @@ function required(name: string): string {
 
 export const env = {
   supabaseUrl: required('NEXT_PUBLIC_SUPABASE_URL'),
-  supabaseAnonKey: required('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  supabasePublishableKey: required('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
 };
 ```
 
@@ -1871,7 +1884,7 @@ import type { Database } from '@kitup/shared-types';
 import { env } from '../env';
 
 export function createBrowserClient() {
-  return createSsrBrowserClient<Database>(env.supabaseUrl, env.supabaseAnonKey);
+  return createSsrBrowserClient<Database>(env.supabaseUrl, env.supabasePublishableKey);
 }
 ```
 
@@ -1885,7 +1898,7 @@ import { env } from '../env';
 
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
-  return createServerClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
+  return createServerClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (set) => {
@@ -1904,9 +1917,11 @@ export async function createServerSupabaseClient() {
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+NEXT_PUBLIC_APP_URL=http://localhost:3001
 ```
+
+No `service_role` key — admin web operates entirely on the signed-in admin user's JWT (RLS enforces). See spec §3 security rule.
 
 - [ ] **Step 5: Typecheck**
 
@@ -1987,7 +2002,7 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         getAll: () => req.cookies.getAll(),
@@ -4445,24 +4460,26 @@ export async function geminiGenerate(args: {
 ```ts
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@kitup/shared-types';
 import { CourseSchema } from '../_shared/schema.ts';
 import { systemPrompt, userPrompt, exampleShot, type GenerateCourseInput } from '../_shared/prompts.ts';
 import { geminiGenerate } from './gemini.ts';
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const geminiKey   = Deno.env.get('GEMINI_API_KEY')!;
+const supabaseUrl     = Deno.env.get('SUPABASE_URL')!;
+const publishableKey  = Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
+const geminiKey       = Deno.env.get('GEMINI_API_KEY')!;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
   const auth = req.headers.get('authorization');
   if (!auth) return new Response('Unauthorized', { status: 401 });
 
-  const supabase = createClient(supabaseUrl, serviceKey, {
+  // Per-request client. Acts as the caller. RLS applies to all reads/writes.
+  const supabase = createClient<Database>(supabaseUrl, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { authorization: auth } },
   });
 
-  // Verify the caller is admin
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || (user.app_metadata as any)?.role !== 'admin') {
     return new Response('Forbidden', { status: 403 });
@@ -4470,9 +4487,8 @@ Deno.serve(async (req) => {
 
   const input = (await req.json()) as GenerateCourseInput;
 
-  // Insert job row with admin service client (bypasses RLS already; we use service)
-  const adminClient = createClient(supabaseUrl, serviceKey);
-  const { data: job, error: jobErr } = await adminClient
+  // Insert the job row (RLS policy "admin generation jobs" allows admins to write).
+  const { data: job, error: jobErr } = await supabase
     .from('generation_jobs')
     .insert({
       requested_by: user.id,
@@ -4485,9 +4501,9 @@ Deno.serve(async (req) => {
   if (jobErr) return new Response(jobErr.message, { status: 500 });
 
   EdgeRuntime.waitUntil((async () => {
-    await adminClient.from('generation_jobs').update({ status: 'running' }).eq('id', job.id);
+    await supabase.from('generation_jobs').update({ status: 'running' }).eq('id', job.id);
     try {
-      const model = (await adminClient.from('app_config').select('value').eq('key', 'ai.gemini.model').maybeSingle()).data?.value as string ?? 'gemini-2.5-flash';
+      const model = (await supabase.from('app_config').select('value').eq('key', 'ai.gemini.model').maybeSingle()).data?.value as string ?? 'gemini-2.5-flash';
       const raw = await geminiGenerate({
         apiKey: geminiKey,
         model,
@@ -4497,10 +4513,10 @@ Deno.serve(async (req) => {
         responseSchema: courseResponseSchema(input.dayCount),
       });
       const parsed = CourseSchema.parse(raw);
-      const courseId = await persistCourse(adminClient, parsed, input.locale);
-      await adminClient.from('generation_jobs').update({ status: 'done', output_ref: courseId }).eq('id', job.id);
+      const courseId = await persistCourse(supabase, parsed, input.locale);
+      await supabase.from('generation_jobs').update({ status: 'done', output_ref: courseId }).eq('id', job.id);
     } catch (e) {
-      await adminClient.from('generation_jobs').update({ status: 'failed', error_msg: String(e) }).eq('id', job.id);
+      await supabase.from('generation_jobs').update({ status: 'failed', error_msg: String(e) }).eq('id', job.id);
     }
   })());
 
@@ -4509,7 +4525,13 @@ Deno.serve(async (req) => {
     status: 202,
   });
 });
+```
 
+The `courseResponseSchema(...)` and `persistCourse(...)` helpers are the same as before — keep them in this same file (just below `Deno.serve`). Both helpers operate on the per-request `supabase` client passed in, so no changes are needed to their internals besides accepting the typed Database client.
+
+<!-- Reference helpers (kept here for the implementer to paste into the file): -->
+
+```ts
 function courseResponseSchema(dayCount: number): object {
   return {
     type: 'OBJECT',
@@ -4631,7 +4653,7 @@ async function persistCourse(supabase: any, course: any, locale: string): Promis
 
 - [ ] **Step 3: Set Edge function secrets**
 
-Use Supabase Studio (or CLI) to set secrets: `GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`.
+Use Supabase Studio (or CLI) to set secrets: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`. Do NOT set a service-role key — see security rule in spec §3.
 
 - [ ] **Step 4: Deploy via MCP**
 
@@ -4673,19 +4695,31 @@ export function translateUser(items: { key: string; source: string }[], targetLo
 
 ```ts
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@kitup/shared-types';
 import { translateSystem, translateUser } from './translatePrompt.ts';
 import { geminiGenerate } from '../generate-course/gemini.ts';
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const geminiKey   = Deno.env.get('GEMINI_API_KEY')!;
+const supabaseUrl    = Deno.env.get('SUPABASE_URL')!;
+const publishableKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
+const geminiKey      = Deno.env.get('GEMINI_API_KEY')!;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-  const { sourceLocale, targetLocale, batchSize = 50 } = await req.json();
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const auth = req.headers.get('authorization');
+  if (!auth) return new Response('Unauthorized', { status: 401 });
 
-  // Find keys present in source but missing in target
+  const supabase = createClient<Database>(supabaseUrl, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { authorization: auth } },
+  });
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || (user.app_metadata as any)?.role !== 'admin') {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  const { sourceLocale, targetLocale, batchSize = 50 } = await req.json();
+
   const { data: missing, error } = await supabase.rpc('translations_missing_for', {
     p_source: sourceLocale, p_target: targetLocale, p_limit: batchSize,
   });
@@ -4722,6 +4756,8 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ translated: rows.length }), { status: 200 });
 });
 ```
+
+Note: the `translations_missing_for` RPC is `language sql STABLE` — it doesn't need to be SECURITY DEFINER since translations table allows public reads. The RLS policy on `translations` requires `is_admin()` for INSERT/UPDATE — the admin's JWT satisfies this.
 
 - [ ] **Step 3: Add the SQL function `translations_missing_for` migration**
 
@@ -5406,64 +5442,65 @@ git commit -m "feat(sr): SM-2 lite spaced repetition + review queue UI"
 
 ---
 
-### Task 10.4: Nightly streak reconciler (Edge Function + cron)
+### Task 10.4: Nightly streak reconciler (SECURITY DEFINER + pg_cron)
+
+No Edge Function — the reconciler runs entirely inside Postgres so it doesn't need to plumb any service key. Per the security rule, no `service_role` exists anywhere in the system.
 
 **Files:**
-- Create: `supabase/functions/streak-reconciler/index.ts`
 - Create: `supabase/migrations/20260504000006_streak_reconciler_cron.sql`
 
-- [ ] **Step 1: Write `supabase/functions/streak-reconciler/index.ts`**
-
-```ts
-import { createClient } from '@supabase/supabase-js';
-
-const url = Deno.env.get('SUPABASE_URL')!;
-const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-Deno.serve(async () => {
-  const supabase = createClient(url, key);
-  // Reset current_streak to 0 for users whose last_active_date is older than yesterday.
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const cutoff = yesterday.toISOString().slice(0, 10);
-  const { error, count } = await supabase
-    .from('user_streaks')
-    .update({ current_streak: 0 })
-    .lt('last_active_date', cutoff)
-    .select('user_id', { count: 'exact', head: false });
-  if (error) return new Response(error.message, { status: 500 });
-  return new Response(JSON.stringify({ reset: count ?? 0 }), { status: 200 });
-});
-```
-
-- [ ] **Step 2: Migration to schedule via pg_cron**
+- [ ] **Step 1: Write the migration**
 
 ```sql
+-- Reset current_streak to 0 for users whose last_active_date is older than yesterday.
+-- SECURITY DEFINER means it runs with the function-owner's privileges (postgres),
+-- bypassing RLS for this single, well-scoped maintenance task.
+create or replace function public.reconcile_streaks()
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  v_count int;
+begin
+  with bumped as (
+    update user_streaks
+       set current_streak = 0
+     where current_streak > 0
+       and (last_active_date is null or last_active_date < (current_date - interval '1 day'))
+    returning user_id
+  )
+  select count(*) into v_count from bumped;
+  return v_count;
+end;
+$$;
+
+revoke execute on function public.reconcile_streaks() from public;
+-- No grant needed — only the cron job (running as postgres) ever calls it.
+
 create extension if not exists pg_cron with schema extensions;
 
 select cron.schedule(
   'streak-reconciler-nightly',
   '5 0 * * *',  -- 00:05 UTC daily
-  $$
-  select net.http_post(
-    url := current_setting('app.supabase_url') || '/functions/v1/streak-reconciler',
-    headers := jsonb_build_object(
-      'authorization', 'Bearer ' || current_setting('app.supabase_service_role_key'),
-      'content-type', 'application/json'
-    )
-  );
-  $$
+  $$ select public.reconcile_streaks(); $$
 );
 ```
 
-(Set `app.supabase_url` and `app.supabase_service_role_key` as Postgres GUCs via Studio → Database → Settings.)
+- [ ] **Step 2: Apply migration via MCP**
 
-- [ ] **Step 3: Deploy edge function and apply migration via MCP. Smoke-trigger via SQL `select net.http_post(...);` and confirm a row updates.**
+Use `mcp__supabase__apply_migration` with name `streak_reconciler_cron`.
+
+- [ ] **Step 3: Smoke-test by calling the function once manually via MCP `execute_sql`:**
+
+```sql
+select public.reconcile_streaks();
+```
+
+Expected: returns the number of streaks reset (0 if no stale users yet). It should also appear in `cron.job` and start firing at 00:05 UTC.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase
-git commit -m "feat(streak): nightly reconciler edge function + pg_cron schedule"
+git add supabase/migrations
+git commit -m "feat(streak): nightly reconciler as SECURITY DEFINER plpgsql + pg_cron"
 ```
 
 ---

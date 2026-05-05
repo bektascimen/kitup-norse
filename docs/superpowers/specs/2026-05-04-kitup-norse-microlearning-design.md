@@ -40,6 +40,7 @@ Build a mobile microlearning app that teaches Norse mythology over 21 days, with
 | Backend | Supabase: Postgres + RLS, Auth, Storage, Realtime, Edge Functions (Deno) |
 | Admin web | Next.js 15 (App Router) + Tailwind + shadcn/ui |
 | AI | Google Gemini API (free tier), called only from Edge Functions — never from clients |
+| Security | **Service role key is never used** anywhere (clients, admin web, edge functions, scripts). Clients use `SUPABASE_PUBLISHABLE_KEY`. Edge Functions pass through the caller's JWT (RLS applies). Background/cron work uses `SECURITY DEFINER` Postgres functions + `pg_cron`. |
 | State (mobile) | Zustand for local UI state, TanStack Query for server state with MMKV persist |
 | Storage (mobile) | MMKV (cache + key-value), expo-secure-store (tokens) |
 | i18n | Backend-driven key/value table in Supabase, MMKV-cached, Realtime invalidation |
@@ -71,7 +72,7 @@ Build a mobile microlearning app that teaches Norse mythology over 21 days, with
                             └──────────────────────────────┘
 ```
 
-Three surfaces, one backend. Supabase is the single source of truth. Gemini is invoked only from Edge Functions; the API key never reaches a client.
+Three surfaces, one backend. Supabase is the single source of truth. Gemini is invoked only from Edge Functions; the API key never reaches a client. **No layer ever holds the Supabase `service_role` key** — clients use the publishable key, Edge Functions act on the caller's JWT (RLS-enforced), and scheduled work runs as `SECURITY DEFINER` Postgres functions.
 
 ---
 
