@@ -69,7 +69,11 @@ export default function RootLayout() {
               headerTintColor: palette.textHigh,
               contentStyle: { backgroundColor: palette.bg },
             }}
-          />
+          >
+            <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+          </Stack>
         </ThemeProvider>
       </SafeAreaProvider>
     </PersistQueryClientProvider>
