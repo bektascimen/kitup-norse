@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../auth/store';
+import { bumpStreakForToday } from '../streak/update';
 
 export function useQuiz(quizId: string | undefined) {
   return useQuery({
@@ -40,6 +41,9 @@ export function useSubmitProgress() {
       }, { onConflict: 'user_id,lesson_id' });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['user_progress'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user_progress'] });
+      bumpStreakForToday();
+    },
   });
 }
