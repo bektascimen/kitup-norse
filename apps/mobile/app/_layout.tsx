@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, fontMap, palette } from '../theme';
 import { queryClient } from '../lib/queryClient';
+import { bootstrapAuth } from '../features/auth/bootstrap';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -14,7 +15,10 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts(fontMap);
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+      bootstrapAuth();
+    }
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
