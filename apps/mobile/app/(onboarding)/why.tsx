@@ -75,20 +75,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: space.lg,
+    paddingTop: space.md, // give Cinzel's tall glyphs (e.g. "2") room above the cap-height
   },
   bigNumber: {
     fontFamily: fontFamily.display,
     color: palette.parchment,
     fontSize: fontSize.mega + 24, // 80
-    letterSpacing: tracking.tight,
-    lineHeight: (fontSize.mega + 24) * 0.95,
+    letterSpacing: tracking.normal,
+    lineHeight: (fontSize.mega + 24) * 1.1, // generous leading prevents top-glyph clip
+    includeFontPadding: false,
+    paddingHorizontal: 4, // safety against side-clipping on certain glyph widths
   },
   bigUnit: {
     fontFamily: fontFamily.displayMid,
     color: palette.mist,
     fontSize: fontSize.md,
     letterSpacing: tracking.rune,
-    paddingBottom: space.lg,
+    paddingBottom: space.xl,
   },
   body: {
     fontFamily: fontFamily.bodyItalic,

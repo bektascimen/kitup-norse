@@ -29,9 +29,10 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    ensurePermissions();
-  }, []);
+  // Skip permission prompt during demo screenshot pass — re-enable after.
+  // useEffect(() => {
+  //   ensurePermissions();
+  // }, []);
 
   useEffect(() => {
     return startOutboxListener();
