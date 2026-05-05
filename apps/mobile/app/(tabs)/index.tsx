@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useT } from '../../features/i18n';
 import { useActiveCourse, useLessons, useUserProgress } from '../../features/lessons/queries';
+import { prefetchCourse } from '../../features/lessons/prefetch';
 import { dueCount } from '../../features/sr/queue';
 import { palette, fontFamily, fontSize, space } from '../../theme';
 
@@ -12,6 +14,10 @@ export default function Today() {
   const lessons = useLessons(course.data?.id);
   const progress = useUserProgress();
   const reviewsDueQ = useQuery({ queryKey: ['reviews-due'], queryFn: dueCount });
+
+  useEffect(() => {
+    if (course.data?.id) prefetchCourse(course.data.id);
+  }, [course.data?.id]);
 
   if (course.isLoading || lessons.isLoading || progress.isLoading) {
     return <View style={styles.center}><ActivityIndicator color={palette.accent} /></View>;
