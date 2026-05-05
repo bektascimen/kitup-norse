@@ -2,6 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../auth/store';
 
+// Each archetype's course is exactly 21 days. Hardcoded because counting
+// the active course's lessons would require resolving the path here too,
+// and the cadence is part of the product spec — not a runtime variable.
+const COURSE_DAYS = 21;
+
 export type LearnerStats = {
   completed: number;
   totalDays: number;
@@ -24,7 +29,7 @@ export function useLearnerStats() {
     queryFn: async (): Promise<LearnerStats> => {
       const nowIso = new Date().toISOString();
 
-      const [progressRes, streakRes, dueRes, totalRes] = await Promise.all([
+      const [progressRes, streakRes, dueRes] = await Promise.all([
         supabase
           .from('user_progress')
           .select('score, completed_at')
@@ -40,7 +45,6 @@ export function useLearnerStats() {
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId!)
           .lte('due_at', nowIso),
-        supabase.from('lessons').select('id', { count: 'exact', head: true }),
       ]);
 
       if (progressRes.error) throw progressRes.error;
@@ -57,7 +61,7 @@ export function useLearnerStats() {
 
       return {
         completed,
-        totalDays: totalRes.count ?? 21,
+        totalDays: COURSE_DAYS,
         avgScore,
         currentStreak: streakRes.data?.current_streak ?? 0,
         longestStreak: streakRes.data?.longest_streak ?? 0,
