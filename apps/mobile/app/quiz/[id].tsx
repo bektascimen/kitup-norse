@@ -14,26 +14,14 @@ import Animated, {
 import { useQuiz, useSubmitProgress } from '../../features/quiz/quizQuery';
 import { computeQuizResult } from '../../features/quiz/score';
 import { enqueueWrong } from '../../features/sr/queue';
+import { useLessonProgress } from '../../features/lessons/lessonProgressQuery';
 import { useT, useI18nStore } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
+import { HeaderBack } from '../../components/atmospherics/HeaderBack';
 
 const FILLED_RUNE = 'ᚠ';
 const EMPTY_RUNE = '᛫';
-
-function HeaderBack() {
-  const locale = useI18nStore((s) => s.locale);
-  return (
-    <Pressable
-      onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
-      hitSlop={16}
-      style={({ pressed }) => [headerStyles.btn, pressed && { opacity: 0.55 }]}
-    >
-      <Text style={headerStyles.chevron}>‹</Text>
-      <Text style={headerStyles.label}>{locale === 'en' ? 'LESSON' : 'DERS'}</Text>
-    </Pressable>
-  );
-}
 
 export default function QuizScreen() {
   const t = useT();
@@ -47,18 +35,45 @@ export default function QuizScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Block re-entry: if this lesson is already completed, jump to the
+  // day-complete screen with the saved score instead of letting the user
+  // re-take the quiz. (Spaced repetition handles wrong answers separately.)
+  const lessonProgress = useLessonProgress(quiz.data?.lesson_id);
+
   // shake / pulse animation values
   const shake = useSharedValue(0);
   const glow = useSharedValue(0);
 
+  const headerOptions = {
+    title: locale === 'en' ? 'Quiz' : 'Quiz',
+    headerLeft: () => <HeaderBack label={locale === 'en' ? 'LESSON' : 'DERS'} />,
+    headerStyle: { backgroundColor: palette.bg },
+    headerTintColor: palette.parchment,
+    headerShadowVisible: false,
+    headerTitleStyle: { fontFamily: fontFamily.display, fontSize: 18 },
+    headerBackVisible: false,
+  };
+
   if (quiz.isLoading || !quiz.data) {
     return (
       <View style={styles.center}>
-        <Stack.Screen
-          options={{ title: locale === 'en' ? 'Quiz' : 'Quiz', headerLeft: () => <HeaderBack /> }}
-        />
+        <Stack.Screen options={headerOptions} />
         <GradientBackdrop variant="night" />
         <ActivityIndicator color={palette.forge} />
+      </View>
+    );
+  }
+
+  // Already completed — short-circuit to the day-complete screen.
+  if (lessonProgress.data?.completed_at) {
+    router.replace({
+      pathname: '/lesson/complete',
+      params: { score: String(lessonProgress.data.score ?? 0), alreadyDone: '1' },
+    });
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={headerOptions} />
+        <GradientBackdrop variant="night" />
       </View>
     );
   }
@@ -136,20 +151,7 @@ export default function QuizScreen() {
 
   return (
     <View style={styles.root}>
-      <Stack.Screen
-        options={{
-          title: locale === 'en' ? 'Quiz' : 'Quiz',
-          headerLeft: () => <HeaderBack />,
-          headerStyle: { backgroundColor: palette.bg },
-          headerTintColor: palette.parchment,
-          headerShadowVisible: false,
-          headerTitleStyle: {
-            fontFamily: fontFamily.display,
-            fontSize: 18,
-          },
-          headerBackVisible: false,
-        }}
-      />
+      <Stack.Screen options={headerOptions} />
       <GradientBackdrop variant="night" />
       <ScrollView
         style={styles.container}
@@ -345,29 +347,6 @@ function OptionRow({
     </Animated.View>
   );
 }
-
-const headerStyles = StyleSheet.create({
-  btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.sm,
-    paddingVertical: space.xs,
-    gap: 6,
-  },
-  chevron: {
-    fontFamily: fontFamily.displayMid,
-    color: palette.forge,
-    fontSize: 26,
-    lineHeight: 26,
-    includeFontPadding: false,
-  },
-  label: {
-    fontFamily: fontFamily.displayMid,
-    color: palette.forge,
-    fontSize: fontSize.sm,
-    letterSpacing: tracking.wide,
-  },
-});
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.bg },
