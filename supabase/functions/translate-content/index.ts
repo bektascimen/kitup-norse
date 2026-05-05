@@ -3,9 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import { translateSystem, translateUser } from './translatePrompt.ts';
 import { geminiGenerate } from './gemini.ts';
 
-const supabaseUrl    = Deno.env.get('SUPABASE_URL')!;
-const publishableKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
-const geminiKey      = Deno.env.get('GEMINI_API_KEY')!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const publishableKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+const geminiKey = Deno.env.get('GEMINI_API_KEY')!;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
@@ -17,18 +17,28 @@ Deno.serve(async (req) => {
     global: { headers: { authorization: auth } },
   });
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || (user.app_metadata as any)?.role !== 'admin') {
-    return new Response('Forbidden', { status: 403 });
+  // Decode JWT directly (gateway already verified signature).
+  const jwt = auth.replace(/^Bearer\s+/i, '');
+  let claims: any;
+  try {
+    claims = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return new Response('Forbidden: bad jwt', { status: 403 });
+  }
+  if (claims?.app_metadata?.role !== 'admin') {
+    return new Response(`Forbidden: role=${claims?.app_metadata?.role ?? 'none'}`, { status: 403 });
   }
 
   const { sourceLocale, targetLocale, batchSize = 50 } = await req.json();
 
   const { data: missing, error } = await supabase.rpc('translations_missing_for', {
-    p_source: sourceLocale, p_target: targetLocale, p_limit: batchSize,
+    p_source: sourceLocale,
+    p_target: targetLocale,
+    p_limit: batchSize,
   });
   if (error) return new Response(error.message, { status: 500 });
-  if (!missing || missing.length === 0) return new Response(JSON.stringify({ translated: 0 }), { status: 200 });
+  if (!missing || missing.length === 0)
+    return new Response(JSON.stringify({ translated: 0 }), { status: 200 });
 
   const responseSchema = {
     type: 'OBJECT',
@@ -45,13 +55,16 @@ Deno.serve(async (req) => {
     required: ['translations'],
   };
 
-  const raw = await geminiGenerate({
+  const raw = (await geminiGenerate({
     apiKey: geminiKey,
     model: 'gemini-2.5-flash',
     system: translateSystem(),
-    user: translateUser(missing.map((m: any) => ({ key: m.key, source: m.value })), targetLocale),
+    user: translateUser(
+      missing.map((m: any) => ({ key: m.key, source: m.value })),
+      targetLocale,
+    ),
     responseSchema,
-  }) as { translations: { key: string; value: string }[] };
+  })) as { translations: { key: string; value: string }[] };
 
   const rows = raw.translations.map((t) => ({ key: t.key, locale: targetLocale, value: t.value }));
   const { error: upErr } = await supabase.from('translations').upsert(rows);

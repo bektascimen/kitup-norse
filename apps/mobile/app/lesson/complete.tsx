@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useT } from '../../features/i18n';
 import { useI18nStore } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
@@ -48,11 +48,12 @@ export default function Complete() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <GradientBackdrop variant="ember" />
 
       <View style={styles.top}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
-          ᛞ BUGÜNLÜK
+          ᛞ {locale === 'en' ? 'TODAY’S DEED' : 'BUGÜNLÜK'}
         </Animated.Text>
       </View>
 

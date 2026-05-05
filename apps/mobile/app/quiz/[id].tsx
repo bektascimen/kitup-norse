@@ -1,5 +1,5 @@
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -14,21 +14,38 @@ import Animated, {
 import { useQuiz, useSubmitProgress } from '../../features/quiz/quizQuery';
 import { computeQuizResult } from '../../features/quiz/score';
 import { enqueueWrong } from '../../features/sr/queue';
-import { useT } from '../../features/i18n';
+import { useT, useI18nStore } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 
 const FILLED_RUNE = 'ᚠ';
 const EMPTY_RUNE = '᛫';
 
+function HeaderBack() {
+  const locale = useI18nStore((s) => s.locale);
+  return (
+    <Pressable
+      onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+      hitSlop={16}
+      style={({ pressed }) => [headerStyles.btn, pressed && { opacity: 0.55 }]}
+    >
+      <Text style={headerStyles.chevron}>‹</Text>
+      <Text style={headerStyles.label}>{locale === 'en' ? 'LESSON' : 'DERS'}</Text>
+    </Pressable>
+  );
+}
+
 export default function QuizScreen() {
   const t = useT();
+  const locale = useI18nStore((s) => s.locale);
   const { id } = useLocalSearchParams<{ id: string }>();
   const quiz = useQuiz(id);
   const submit = useSubmitProgress();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // shake / pulse animation values
   const shake = useSharedValue(0);
@@ -37,6 +54,9 @@ export default function QuizScreen() {
   if (quiz.isLoading || !quiz.data) {
     return (
       <View style={styles.center}>
+        <Stack.Screen
+          options={{ title: locale === 'en' ? 'Quiz' : 'Quiz', headerLeft: () => <HeaderBack /> }}
+        />
         <GradientBackdrop variant="night" />
         <ActivityIndicator color={palette.forge} />
       </View>
@@ -75,25 +95,36 @@ export default function QuizScreen() {
   }
 
   async function next() {
-    setRevealed(false);
-    glow.value = 0;
-    if (isLast) {
-      const result = computeQuizResult(
-        questions.map((qq) => ({ id: qq.id, correctOptionIds: qq.correctOptionIds })),
-        Object.entries(answers).map(([questionId, selectedOptionId]) => ({
-          questionId,
-          selectedOptionId,
-        })),
-      );
-      await submit.mutateAsync({ lessonId: data.lesson_id, score: result.score });
-      await enqueueWrong(result.wrongQuestionIds);
-      router.replace({
-        pathname: '/lesson/complete',
-        params: { score: String(result.score) },
-      });
-    } else {
+    if (!isLast) {
+      setRevealed(false);
+      glow.value = 0;
       setStep(step + 1);
+      return;
     }
+    // Last question → finish flow.
+    setSubmitting(true);
+    setSubmitError(null);
+    const result = computeQuizResult(
+      questions.map((qq) => ({ id: qq.id, correctOptionIds: qq.correctOptionIds })),
+      Object.entries(answers).map(([questionId, selectedOptionId]) => ({
+        questionId,
+        selectedOptionId,
+      })),
+    );
+    try {
+      await submit.mutateAsync({ lessonId: data.lesson_id, score: result.score });
+    } catch (e) {
+      console.warn('[quiz] submit progress failed', e); // queued in outbox; safe to proceed
+    }
+    try {
+      await enqueueWrong(result.wrongQuestionIds);
+    } catch (e) {
+      console.warn('[quiz] enqueue wrong failed', e);
+    }
+    router.replace({
+      pathname: '/lesson/complete',
+      params: { score: String(result.score) },
+    });
   }
 
   const correctIds = new Set<string>(q.correctOptionIds);
@@ -105,13 +136,27 @@ export default function QuizScreen() {
 
   return (
     <View style={styles.root}>
+      <Stack.Screen
+        options={{
+          title: locale === 'en' ? 'Quiz' : 'Quiz',
+          headerLeft: () => <HeaderBack />,
+          headerStyle: { backgroundColor: palette.bg },
+          headerTintColor: palette.parchment,
+          headerShadowVisible: false,
+          headerTitleStyle: {
+            fontFamily: fontFamily.display,
+            fontSize: 18,
+          },
+          headerBackVisible: false,
+        }}
+      />
       <GradientBackdrop variant="night" />
       <ScrollView
         style={styles.container}
         contentContainerStyle={{
           padding: space.xl,
-          paddingTop: space.xxl,
-          paddingBottom: space.xxxl,
+          paddingTop: space.lg,
+          paddingBottom: space.xl,
         }}
       >
         <Text style={styles.progress}>{progressRunes}</Text>
@@ -141,7 +186,7 @@ export default function QuizScreen() {
               styles.explanation,
               wrongPicked && {
                 borderColor: palette.clottedBlood,
-                backgroundColor: 'rgba(139, 47, 47, 0.08)',
+                backgroundColor: 'rgba(139, 47, 47, 0.12)',
               },
             ]}
           >
@@ -151,16 +196,38 @@ export default function QuizScreen() {
             <Text style={styles.explainBody}>{t(q.explanation_key)}</Text>
           </Animated.View>
         )}
+      </ScrollView>
 
-        {revealed && (
-          <Animated.View entering={FadeInUp.delay(200).duration(500)}>
-            <Pressable style={styles.cta} onPress={next}>
-              <Text style={styles.ctaText}>{isLast ? t('quiz.finish') : t('quiz.next')}</Text>
+      {/* Sticky footer — verdict + CTA always visible when revealed */}
+      {revealed && (
+        <Animated.View entering={FadeInUp.duration(300)} style={styles.footer}>
+          <View style={styles.footerInner}>
+            <Text
+              style={[
+                styles.verdict,
+                wrongPicked ? { color: palette.clottedBlood } : { color: palette.moss },
+              ]}
+            >
+              {wrongPicked
+                ? `ᚷ ${t('quiz.incorrect').toUpperCase()}`
+                : `ᛟ ${t('quiz.correct').toUpperCase()}`}
+            </Text>
+            <Pressable style={styles.cta} onPress={next} disabled={submitting}>
+              <Text style={styles.ctaText}>
+                {submitting
+                  ? locale === 'en'
+                    ? 'SAVING…'
+                    : 'KAYDEDİYOR…'
+                  : isLast
+                    ? t('quiz.finish').toUpperCase()
+                    : t('quiz.next').toUpperCase()}
+              </Text>
               <Text style={styles.ctaRune}> ›</Text>
             </Pressable>
-          </Animated.View>
-        )}
-      </ScrollView>
+            {submitError && <Text style={styles.errorText}>{submitError}</Text>}
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -228,18 +295,22 @@ function OptionRow({
   const showCorrect = revealed && isCorrect;
   const showWrong = revealed && isSelected && !isCorrect;
 
-  const tone = revealed
-    ? isCorrect
-      ? palette.moss
-      : isSelected
-        ? palette.clottedBlood
-        : palette.border
-    : palette.border;
+  const baseBg = showCorrect
+    ? 'rgba(90, 140, 92, 0.14)' // moss tint
+    : showWrong
+      ? 'rgba(139, 47, 47, 0.14)' // clottedBlood tint
+      : 'rgba(19, 24, 38, 0.6)';
+
+  const borderColor = showCorrect
+    ? palette.moss
+    : showWrong
+      ? palette.clottedBlood
+      : palette.border;
 
   const animStyle = useAnimatedStyle(() => {
     if (!showCorrect) return {};
-    const op = 0.5 + glow.value * 0.5;
-    return { borderColor: palette.forge, opacity: op };
+    const op = 0.65 + glow.value * 0.35;
+    return { opacity: op };
   });
 
   return (
@@ -249,18 +320,54 @@ function OptionRow({
         onPress={() => onPick(option.id)}
         style={[
           styles.option,
-          { borderColor: tone },
-          showCorrect && { borderColor: palette.forge },
+          { borderColor, backgroundColor: baseBg, borderWidth: showCorrect || showWrong ? 2 : 1 },
         ]}
       >
-        <Text style={[styles.optionRune, (showCorrect || showWrong) && { opacity: 1 }]}>
-          {showCorrect ? 'ᛟ' : showWrong ? 'ᚷ' : 'ᛞ'}
+        <Text
+          style={[
+            styles.optionRune,
+            showCorrect && { color: palette.moss, opacity: 1 },
+            showWrong && { color: palette.clottedBlood, opacity: 1 },
+          ]}
+        >
+          {showCorrect ? '✓' : showWrong ? '✕' : 'ᛞ'}
         </Text>
-        <Text style={styles.optionText}>{t(option.label_key)}</Text>
+        <Text
+          style={[
+            styles.optionText,
+            showCorrect && { color: palette.parchment },
+            showWrong && { color: palette.parchment },
+          ]}
+        >
+          {t(option.label_key)}
+        </Text>
       </Pressable>
     </Animated.View>
   );
 }
+
+const headerStyles = StyleSheet.create({
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    gap: 6,
+  },
+  chevron: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: 26,
+    lineHeight: 26,
+    includeFontPadding: false,
+  },
+  label: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.sm,
+    letterSpacing: tracking.wide,
+  },
+});
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: palette.bg },
@@ -302,7 +409,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     borderRadius: radius.md,
     borderWidth: 1,
-    backgroundColor: 'rgba(19, 24, 38, 0.6)',
     gap: space.md,
   },
   optionRune: {
@@ -326,7 +432,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: palette.forge,
-    backgroundColor: 'rgba(201, 169, 110, 0.06)',
+    backgroundColor: 'rgba(201, 169, 110, 0.08)',
     gap: space.sm,
   },
   explainTitle: {
@@ -341,8 +447,22 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     lineHeight: fontSize.md * 1.55,
   },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.border,
+    backgroundColor: palette.bg,
+    paddingTop: space.md,
+    paddingBottom: space.xxl,
+    paddingHorizontal: space.xl,
+  },
+  footerInner: { gap: space.sm },
+  verdict: {
+    fontFamily: fontFamily.displayMid,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+    textAlign: 'center',
+  },
   cta: {
-    marginTop: space.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -360,5 +480,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.display,
     color: palette.forge,
     fontSize: fontSize.lg,
+  },
+  errorText: {
+    fontFamily: fontFamily.bodyItalic,
+    color: palette.clottedBlood,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    marginTop: space.xs,
   },
 });

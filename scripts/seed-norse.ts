@@ -49,14 +49,21 @@ async function signInAdmin(): Promise<{ token: string; admin: ReturnType<typeof 
 }
 
 async function startGeneration(token: string): Promise<string> {
+  const tone =
+    (process.env.SEED_TONE as 'wisdom' | 'warrior' | 'traveler' | undefined) ?? undefined;
   const res = await fetch(`${url}/functions/v1/generate-course`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: {
+      'content-type': 'application/json',
+      apikey: publishableKey,
+      authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({
       topic: 'Norse Mythology',
       difficulty: 'beginner',
       dayCount: 21,
       locale: 'tr',
+      tone,
     }),
   });
   if (!res.ok) throw new Error(`generate-course failed: ${res.status} ${await res.text()}`);
@@ -82,7 +89,11 @@ async function publishCourse(admin: ReturnType<typeof createClient>, courseId: s
 async function translateToEn(token: string) {
   const res = await fetch(`${url}/functions/v1/translate-content`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: {
+      'content-type': 'application/json',
+      apikey: publishableKey,
+      authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ sourceLocale: 'tr', targetLocale: 'en', batchSize: 500 }),
   });
   if (!res.ok) throw new Error(`translate-content failed: ${await res.text()}`);

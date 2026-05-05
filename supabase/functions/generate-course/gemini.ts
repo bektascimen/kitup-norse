@@ -21,19 +21,42 @@ export async function geminiGenerate(args: {
     contents,
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: args.responseSchema,
+      // responseSchema omitted: Gemini's constraint compiler chokes on our nested
+      // enum + min/max array constraints. We rely on the system prompt + the
+      // server-side zod validator (CourseSchema) instead, with a single retry.
       temperature: 0.7,
     },
   };
 
-  const res = await fetch(ENDPOINT(args.model, args.apiKey), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`gemini ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('gemini returned empty content');
-  return JSON.parse(text);
+  // Retry with exponential backoff on 429/503/504 (transient).
+  const delays = [3_000, 10_000, 25_000, 60_000];
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      const res = await fetch(ENDPOINT(args.model, args.apiKey), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) throw new Error('gemini returned empty content');
+        return JSON.parse(text);
+      }
+      const errText = await res.text();
+      // Retry on transient errors only.
+      if ([429, 500, 502, 503, 504].includes(res.status) && attempt < delays.length) {
+        await new Promise((r) => setTimeout(r, delays[attempt]!));
+        continue;
+      }
+      throw new Error(`gemini ${res.status}: ${errText}`);
+    } catch (e) {
+      lastErr = e;
+      if (attempt >= delays.length) break;
+      // network errors also benefit from retry
+      await new Promise((r) => setTimeout(r, delays[attempt]!));
+    }
+  }
+  throw lastErr ?? new Error('gemini retries exhausted');
 }
