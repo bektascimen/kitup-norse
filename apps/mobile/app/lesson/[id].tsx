@@ -1,48 +1,143 @@
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useLesson } from '../../features/lessons/lessonQuery';
 import { useT } from '../../features/i18n';
-import { palette, fontFamily, fontSize, space } from '../../theme';
+import { palette, fontFamily, fontSize, space, tracking, radius } from '../../theme';
 import Body from '../../components/Markdown';
+import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
+import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 
 export default function LessonScreen() {
   const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const lesson = useLesson(id);
 
-  if (lesson.isLoading) return <View style={styles.center}><ActivityIndicator color={palette.accent} /></View>;
+  if (lesson.isLoading)
+    return (
+      <View style={styles.center}>
+        <GradientBackdrop variant="night" />
+        <ActivityIndicator color={palette.forge} />
+      </View>
+    );
   if (!lesson.data) return null;
 
-  const quizId = (lesson.data.quizzes as any)?.[0]?.id ?? (lesson.data.quizzes as any)?.id;
+  const quizId = (lesson.data.quizzes as { id?: string }[] | { id?: string } | undefined)
+    ? Array.isArray(lesson.data.quizzes)
+      ? lesson.data.quizzes[0]?.id
+      : (lesson.data.quizzes as { id?: string }).id
+    : undefined;
+
+  const heroUri = lesson.data.hero_image_url ?? null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl }}>
-      {lesson.data.hero_image_url && (
-        <Image source={{ uri: lesson.data.hero_image_url }} style={styles.hero} contentFit="cover" />
-      )}
-      <Text style={styles.day}>Day {lesson.data.day_number}</Text>
-      <Text style={styles.title}>{t(lesson.data.title_key)}</Text>
-      <View style={{ height: space.md }} />
-      <Body>{t(lesson.data.body_key)}</Body>
-      {quizId && (
-        <Pressable
-          style={styles.cta}
-          onPress={() => router.push(`/quiz/${quizId}`)}
-        >
-          <Text style={styles.ctaText}>{t('lesson.cta.continue_quiz')}</Text>
-        </Pressable>
-      )}
-    </ScrollView>
+    <View style={styles.root}>
+      <GradientBackdrop variant="night" />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: space.xxxl,
+        }}
+      >
+        {heroUri ? (
+          <View style={styles.heroWrap}>
+            <Image
+              source={{ uri: heroUri }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              transition={400}
+            />
+            <LinearGradient
+              colors={['transparent', 'transparent', palette.bg]}
+              locations={[0, 0.5, 1]}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+          </View>
+        ) : (
+          <View style={[styles.heroWrap, { backgroundColor: palette.twilight }]} />
+        )}
+
+        <View style={styles.body}>
+          <Animated.Text entering={FadeIn.duration(700)} style={styles.day}>
+            ᛞ DAY {String(lesson.data.day_number).padStart(2, '0')}
+          </Animated.Text>
+          <Animated.Text entering={FadeInUp.delay(120).duration(800)} style={styles.title}>
+            {t(lesson.data.title_key)}
+          </Animated.Text>
+          <CarvedDivider />
+          <Animated.View entering={FadeInUp.delay(280).duration(800)}>
+            <Body>{t(lesson.data.body_key)}</Body>
+          </Animated.View>
+
+          {quizId && (
+            <>
+              <CarvedDivider />
+              <Pressable style={styles.cta} onPress={() => router.push(`/quiz/${quizId}`)}>
+                <Text style={styles.ctaText}>{t('lesson.cta.continue_quiz')}</Text>
+                <Text style={styles.ctaRune}> ›</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: palette.bg },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bg },
-  hero: { width: '100%', aspectRatio: 16 / 9, borderRadius: 12, marginBottom: space.lg },
-  day: { fontFamily: fontFamily.bodyMedium, color: palette.accent, fontSize: fontSize.sm, letterSpacing: 2 },
-  title: { fontFamily: fontFamily.display, color: palette.textHigh, fontSize: fontSize.xxl, marginTop: space.xs },
-  cta: { marginTop: space.xl, padding: space.lg, backgroundColor: palette.accent, borderRadius: 12, alignItems: 'center' },
-  ctaText: { fontFamily: fontFamily.bodyMedium, color: palette.bg, fontSize: fontSize.md },
+  root: { flex: 1, backgroundColor: palette.bg },
+  container: { flex: 1 },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: palette.bg,
+  },
+  heroWrap: {
+    width: '100%',
+    aspectRatio: 4 / 5,
+    overflow: 'hidden',
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
+  },
+  body: {
+    paddingHorizontal: space.xl,
+    paddingTop: space.lg,
+    gap: space.sm,
+  },
+  day: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+  },
+  title: {
+    fontFamily: fontFamily.display,
+    color: palette.parchment,
+    fontSize: fontSize.xxl,
+    letterSpacing: tracking.tight,
+    lineHeight: fontSize.xxl * 1.1,
+  },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.lg,
+    borderTopWidth: 1,
+    borderTopColor: palette.forge,
+  },
+  ctaText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.parchment,
+    fontSize: fontSize.md,
+    letterSpacing: tracking.wide,
+  },
+  ctaRune: {
+    fontFamily: fontFamily.display,
+    color: palette.forge,
+    fontSize: fontSize.lg,
+  },
 });

@@ -1,19 +1,25 @@
 import { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useT } from '../../features/i18n';
 import { useActiveCourse, useLessons, useUserProgress } from '../../features/lessons/queries';
+import { useUserStreak } from '../../features/streak/query';
 import { prefetchCourse } from '../../features/lessons/prefetch';
 import { dueCount } from '../../features/sr/queue';
 import { syncTodayWidget } from '../../features/widget/sync';
-import { palette, fontFamily, fontSize, space } from '../../theme';
+import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
+import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
+import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 
 export default function Today() {
   const t = useT();
   const course = useActiveCourse();
   const lessons = useLessons(course.data?.id);
   const progress = useUserProgress();
+  const streak = useUserStreak();
   const reviewsDueQ = useQuery({ queryKey: ['reviews-due'], queryFn: dueCount });
 
   const completed = new Set(
@@ -38,14 +44,17 @@ export default function Today() {
   if (course.isLoading || lessons.isLoading || progress.isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={palette.accent} />
+        <GradientBackdrop variant="night" />
+        <ActivityIndicator color={palette.forge} />
       </View>
     );
   }
   if (!course.data) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>🐺</Text>
+        <GradientBackdrop variant="night" />
+        <Text style={styles.wolfRune}>🐺</Text>
+        <CarvedDivider />
         <Text style={styles.muted}>Loki gizlemiş olmalı… içerik henüz yayınlanmamış.</Text>
       </View>
     );
@@ -54,66 +63,209 @@ export default function Today() {
   if (!todays) {
     return (
       <View style={styles.center}>
+        <GradientBackdrop variant="night" />
+        <Text style={styles.eyebrow}>ᛞ YOLCULUK TAMAM ᛞ</Text>
         <Text style={styles.title}>{t('day.complete.title')}</Text>
+        <CarvedDivider />
         <Text style={styles.muted}>{t('day.complete.body')}</Text>
       </View>
     );
   }
 
+  const heroUri = (todays as { hero_image_url?: string | null }).hero_image_url ?? null;
+  const streakDays = streak.data?.current_streak ?? 0;
+  const reviewsCount = reviewsDueQ.data ?? 0;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.dayBadge}>
-        Day {todays.day_number} / {course.data.day_count}
-      </Text>
-      {reviewsDueQ.data && reviewsDueQ.data > 0 && (
-        <Pressable onPress={() => router.push('/review')} style={styles.reviewBadge}>
-          <Text style={styles.reviewBadgeText}>
-            {t('today.reviews_due', { count: reviewsDueQ.data })}
-          </Text>
-        </Pressable>
-      )}
-      <Text style={styles.title}>{t(todays.title_key)}</Text>
-      <Pressable style={styles.cta} onPress={() => router.push(`/lesson/${todays.id}`)}>
-        <Text style={styles.ctaText}>{t('today.cta.start')}</Text>
-      </Pressable>
+    <View style={styles.root}>
+      <GradientBackdrop variant="night" />
+      <ScrollView
+        contentContainerStyle={{
+          padding: space.xl,
+          paddingTop: space.xxl,
+          paddingBottom: space.xxxl,
+          gap: space.lg,
+        }}
+      >
+        <Animated.Text entering={FadeIn.duration(700)} style={styles.dayBadge}>
+          ᛞ DAY {String(todays.day_number).padStart(2, '0')} / {course.data.day_count}
+        </Animated.Text>
+
+        <Animated.View entering={FadeInUp.delay(120).duration(800)}>
+          <Pressable style={styles.hero} onPress={() => router.push(`/lesson/${todays.id}`)}>
+            {heroUri ? (
+              <Image
+                source={{ uri: heroUri }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={400}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.heroFallback]} />
+            )}
+            <View style={styles.heroOverlay} />
+            <View style={styles.heroBody}>
+              <Text style={styles.heroEyebrow}>BUGÜNÜN HİKAYESİ</Text>
+              <Text numberOfLines={3} style={styles.heroTitle}>
+                {t(todays.title_key)}
+              </Text>
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(280).duration(800)} style={styles.chipRow}>
+          {streakDays > 0 && (
+            <View style={styles.chip}>
+              <Text style={styles.chipRune}>ᛗ</Text>
+              <Text style={styles.chipText}>
+                {streakDays}{' '}
+                {t(streakDays === 1 ? 'today.streak.days_one' : 'today.streak.days_other', {
+                  count: streakDays,
+                })}
+              </Text>
+            </View>
+          )}
+          {reviewsCount > 0 && (
+            <Pressable
+              onPress={() => router.push('/review')}
+              style={[styles.chip, styles.chipAccent]}
+            >
+              <Text style={styles.chipRune}>ᚦ</Text>
+              <Text style={styles.chipText}>{t('today.reviews_due', { count: reviewsCount })}</Text>
+            </Pressable>
+          )}
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(420).duration(800)}>
+          <Pressable style={styles.cta} onPress={() => router.push(`/lesson/${todays.id}`)}>
+            <Text style={styles.ctaText}>{t('today.cta.start')}</Text>
+            <Text style={styles.ctaRune}> ›</Text>
+          </Pressable>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: space.xl, gap: space.md, backgroundColor: palette.bg },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bg },
-  dayBadge: {
-    fontFamily: fontFamily.bodyMedium,
-    color: palette.accent,
-    fontSize: fontSize.sm,
-    letterSpacing: 2,
+  root: { flex: 1, backgroundColor: palette.bg },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: palette.bg,
+    paddingHorizontal: space.xl,
   },
-  title: { fontFamily: fontFamily.display, color: palette.textHigh, fontSize: fontSize.xxl },
+  wolfRune: { fontSize: 96, marginBottom: space.md },
+  dayBadge: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+  },
+  eyebrow: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+    textAlign: 'center',
+  },
+  title: {
+    fontFamily: fontFamily.display,
+    color: palette.parchment,
+    fontSize: fontSize.xxl,
+    textAlign: 'center',
+    letterSpacing: tracking.tight,
+  },
   muted: {
-    fontFamily: fontFamily.body,
-    color: palette.textMid,
+    fontFamily: fontFamily.bodyItalic,
+    color: palette.mist,
     fontSize: fontSize.md,
     textAlign: 'center',
-    marginTop: space.md,
+    lineHeight: fontSize.md * 1.6,
+    maxWidth: 320,
+  },
+  hero: {
+    aspectRatio: 4 / 5,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    overflow: 'hidden',
+    backgroundColor: palette.bgElevated,
+  },
+  heroFallback: { backgroundColor: palette.twilight },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 9, 18, 0.55)',
+  },
+  heroBody: {
+    position: 'absolute',
+    left: space.lg,
+    right: space.lg,
+    bottom: space.lg,
+    gap: space.sm,
+  },
+  heroEyebrow: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+  },
+  heroTitle: {
+    fontFamily: fontFamily.display,
+    color: palette.parchment,
+    fontSize: fontSize.xl,
+    letterSpacing: tracking.tight,
+    lineHeight: fontSize.xl * 1.15,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.bgElevated,
+    gap: space.sm,
+  },
+  chipAccent: {
+    borderColor: palette.forge,
+  },
+  chipRune: {
+    fontFamily: fontFamily.display,
+    color: palette.forge,
+    fontSize: fontSize.md,
+  },
+  chipText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.parchment,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.wide,
   },
   cta: {
-    marginTop: space.xl,
-    padding: space.lg,
-    backgroundColor: palette.accent,
-    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.lg,
+    borderTopWidth: 1,
+    borderTopColor: palette.forge,
+    marginTop: space.md,
   },
-  ctaText: { fontFamily: fontFamily.bodyMedium, color: palette.bg, fontSize: fontSize.md },
-  reviewBadge: {
-    padding: space.sm,
-    backgroundColor: palette.bgElevated,
-    borderRadius: 999,
-    alignSelf: 'flex-start',
+  ctaText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.parchment,
+    fontSize: fontSize.md,
+    letterSpacing: tracking.wide,
   },
-  reviewBadgeText: {
-    fontFamily: fontFamily.bodyMedium,
-    color: palette.accent,
-    fontSize: fontSize.sm,
+  ctaRune: {
+    fontFamily: fontFamily.display,
+    color: palette.forge,
+    fontSize: fontSize.lg,
   },
 });

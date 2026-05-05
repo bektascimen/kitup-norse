@@ -1,53 +1,151 @@
+import { useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useT } from '../../features/i18n';
-import { palette, fontFamily, fontSize, space } from '../../theme';
+import { useI18nStore } from '../../features/i18n';
+import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
+import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
+
+const TOMORROW_MSG = {
+  tr: 'Yarın seni bekliyorum.',
+  en: 'I will wait for you tomorrow.',
+} as const;
 
 export default function Complete() {
   const t = useT();
   const { score } = useLocalSearchParams<{ score: string }>();
+  const locale = useI18nStore((s) => s.locale);
+
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    );
+  }, [pulse]);
+
+  const runeStyle = useAnimatedStyle(() => ({
+    opacity: 0.7 + pulse.value * 0.3,
+    transform: [{ scale: 1 + pulse.value * 0.05 }],
+  }));
+
+  const tomorrow = TOMORROW_MSG[locale === 'en' ? 'en' : 'tr'];
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('day.complete.title')}</Text>
-      <Animated.Text entering={FadeIn.duration(800)} style={styles.score}>
-        {score}%
-      </Animated.Text>
-      <Text style={styles.body}>{t('day.complete.body')}</Text>
-      <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)')}>
-        <Text style={styles.ctaText}>{t('onboarding.cta.continue')}</Text>
-      </Pressable>
+      <GradientBackdrop variant="ember" />
+
+      <View style={styles.top}>
+        <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
+          ᛞ BUGÜNLÜK
+        </Animated.Text>
+      </View>
+
+      <View style={styles.center}>
+        <Animated.Text entering={FadeIn.duration(1500)} style={[styles.bigRune, runeStyle]}>
+          ᛟ
+        </Animated.Text>
+
+        <Animated.Text entering={FadeInUp.delay(800).duration(900)} style={styles.scoreLabel}>
+          {t('day.complete.title').toUpperCase()}
+        </Animated.Text>
+        <Animated.Text entering={FadeInUp.delay(1000).duration(900)} style={styles.score}>
+          {score ?? '0'}%
+        </Animated.Text>
+        <Animated.Text entering={FadeInUp.delay(1300).duration(900)} style={styles.body}>
+          {tomorrow}
+        </Animated.Text>
+      </View>
+
+      <Animated.View entering={FadeInUp.delay(1700).duration(700)} style={styles.ctaWrap}>
+        <Pressable style={styles.cta} onPress={() => router.replace('/(tabs)')}>
+          <Text style={styles.ctaText}>{t('onboarding.cta.continue')}</Text>
+          <Text style={styles.ctaRune}> ›</Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: palette.bg },
+  top: {
+    paddingTop: space.xxxl + space.lg,
+    alignItems: 'center',
+  },
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: space.xl,
+    paddingHorizontal: space.xl,
     gap: space.md,
-    backgroundColor: palette.bg,
   },
-  title: {
+  eyebrow: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+  },
+  bigRune: {
     fontFamily: fontFamily.display,
-    color: palette.textHigh,
-    fontSize: fontSize.xxl,
+    color: palette.forge,
+    fontSize: 200,
+    lineHeight: 220,
     textAlign: 'center',
+    marginBottom: space.xl,
   },
-  score: { fontFamily: fontFamily.display, color: palette.accent, fontSize: fontSize.hero },
+  scoreLabel: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.mist,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+  },
+  score: {
+    fontFamily: fontFamily.display,
+    color: palette.parchment,
+    fontSize: fontSize.mega,
+    letterSpacing: tracking.tight,
+  },
   body: {
-    fontFamily: fontFamily.body,
-    color: palette.textMid,
-    fontSize: fontSize.md,
+    fontFamily: fontFamily.bodyItalic,
+    color: palette.mist,
+    fontSize: fontSize.lg,
     textAlign: 'center',
+    marginTop: space.lg,
   },
+  ctaWrap: { paddingHorizontal: space.xl, paddingBottom: space.xxxl },
   cta: {
-    marginTop: space.xl,
-    padding: space.lg,
-    backgroundColor: palette.accent,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.lg,
+    borderTopWidth: 1,
+    borderTopColor: palette.forge,
   },
-  ctaText: { fontFamily: fontFamily.bodyMedium, color: palette.bg, fontSize: fontSize.md },
+  ctaText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.parchment,
+    fontSize: fontSize.md,
+    letterSpacing: tracking.wide,
+  },
+  ctaRune: {
+    fontFamily: fontFamily.display,
+    color: palette.forge,
+    fontSize: fontSize.lg,
+  },
 });
