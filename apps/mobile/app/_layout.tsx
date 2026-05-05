@@ -8,6 +8,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, fontMap, palette } from '../theme';
 import { queryClient } from '../lib/queryClient';
 import { bootstrapAuth } from '../features/auth/bootstrap';
+import { syncTranslations, subscribeTranslations, useI18nStore } from '../features/i18n';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,6 +20,18 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
       bootstrapAuth();
     }
+  }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (!fontsLoaded) return;
+    let unsub: (() => void) | undefined;
+    (async () => {
+      const locale = useI18nStore.getState().locale;
+      await syncTranslations(locale);
+      useI18nStore.getState().setReady(true);
+      unsub = subscribeTranslations(locale);
+    })();
+    return () => unsub?.();
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
