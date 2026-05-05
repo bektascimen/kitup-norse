@@ -1,8 +1,10 @@
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useT, useI18nStore, syncTranslations } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
+import { sendMagicLink } from '../../features/auth/magicLink';
 import { palette, fontFamily, fontSize, space } from '../../theme';
 import type { Locale } from '@kitup/shared-types';
 
@@ -12,6 +14,10 @@ export default function Profile() {
   const setLocale = useI18nStore((s) => s.setLocale);
   const session = useAuthStore((s) => s.session);
 
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   async function pickLocale(l: Locale) {
     setLocale(l);
     await syncTranslations(l);
@@ -20,6 +26,12 @@ export default function Profile() {
   async function signOut() {
     await supabase.auth.signOut();
     router.replace('/(onboarding)/welcome');
+  }
+
+  async function onSendLink() {
+    setError(null);
+    const r = await sendMagicLink(email);
+    r.ok ? setSent(true) : setError(r.error);
   }
 
   return (
@@ -39,10 +51,31 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* Account section is filled in Phase 9 (Apple + magic link). For now, show placeholder text. */}
       <View>
         <Text style={styles.label}>{t('profile.create_account')}</Text>
-        <Text style={styles.muted}>(Phase 9 fills in Apple + email forms here.)</Text>
+        <TextInput
+          placeholder="you@example.com"
+          placeholderTextColor={palette.textLow}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={{
+            backgroundColor: palette.bgElevated, color: palette.textHigh,
+            borderWidth: 1, borderColor: palette.border, borderRadius: 10,
+            padding: space.md, fontFamily: fontFamily.body, fontSize: fontSize.md,
+          }}
+        />
+        <Pressable
+          style={{ marginTop: space.sm, padding: space.md, alignItems: 'center', borderRadius: 10, backgroundColor: palette.accent }}
+          onPress={onSendLink}
+        >
+          <Text style={{ fontFamily: fontFamily.bodyMedium, color: palette.bg, fontSize: fontSize.md }}>
+            {t('profile.signin.email')}
+          </Text>
+        </Pressable>
+        {sent && <Text style={[styles.muted, { color: palette.success, marginTop: space.sm }]}>Check your email.</Text>}
+        {error && <Text style={[styles.muted, { color: palette.danger, marginTop: space.sm }]}>{error}</Text>}
       </View>
 
       {session && (
