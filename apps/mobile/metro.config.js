@@ -15,8 +15,9 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-// pnpm uses non-flat node_modules; disable hierarchical lookup so Metro
-// only walks the explicit nodeModulesPaths above.
-config.resolver.disableHierarchicalLookup = true;
+// pnpm symlinks: enable Metro's symlink-aware resolver so it can follow
+// the `.pnpm/` indirection to find transitive deps like expo-modules-core.
+config.resolver.unstable_enableSymlinks = true;
+config.resolver.unstable_enablePackageExports = true;
 
 module.exports = config;

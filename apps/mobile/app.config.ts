@@ -37,19 +37,23 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-secure-store',
     'expo-apple-authentication',
-    [
-      '@bacons/apple-targets',
-      {
-        appleTeamId: 'TEAMID',
-        extensions: [
-          {
-            name: 'TodayWidget',
-            bundleIdentifier: 'com.kitup.norse.TodayWidget',
-            entitlements: { 'com.apple.security.application-groups': ['group.com.kitup.norse'] },
-          },
-        ],
-      },
-    ],
+    '@react-native-community/datetimepicker',
+    '@sentry/react-native',
+    // Widget extension plugin disabled until appleTeamId is set + signing configured.
+    // Re-enable after replacing 'TEAMID' with your real Apple Developer team id.
+    // [
+    //   '@bacons/apple-targets',
+    //   {
+    //     appleTeamId: 'TEAMID',
+    //     extensions: [
+    //       {
+    //         name: 'TodayWidget',
+    //         bundleIdentifier: 'com.kitup.norse.TodayWidget',
+    //         entitlements: { 'com.apple.security.application-groups': ['group.com.kitup.norse'] },
+    //       },
+    //     ],
+    //   },
+    // ],
   ],
   experiments: { typedRoutes: true },
   extra: {
