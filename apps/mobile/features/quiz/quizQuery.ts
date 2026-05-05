@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { track } from '../../lib/analytics';
 import { useAuthStore } from '../auth/store';
 import { bumpStreakForToday } from '../streak/update';
 import { enqueueProgress } from './outbox';
@@ -40,9 +41,10 @@ export function useSubmitProgress() {
       }, { onConflict: 'user_id,lesson_id' });
       if (error) enqueueProgress(item);
     },
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['user_progress'] });
       bumpStreakForToday();
+      track('lesson_completed', { lessonId: vars.lessonId, score: vars.score });
     },
   });
 }
