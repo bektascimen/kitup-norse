@@ -7,6 +7,7 @@ import { useT, useI18nStore, syncTranslations } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
 import { sendMagicLink } from '../../features/auth/magicLink';
 import { appleAvailable, signInWithApple } from '../../features/auth/apple';
+import { scheduleDailyReminder } from '../../features/notifications/schedule';
 import { palette, fontFamily, fontSize, space } from '../../theme';
 import type { Locale } from '@kitup/shared-types';
 
@@ -36,6 +37,10 @@ export default function Profile() {
     r.ok ? setSent(true) : setError(r.error);
   }
 
+  async function setReminder() {
+    await scheduleDailyReminder({ hour: 19, minute: 0 });
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
       <View>
@@ -51,6 +56,18 @@ export default function Profile() {
             </Pressable>
           ))}
         </View>
+      </View>
+
+      <View>
+        <Text style={styles.label}>{t('profile.notification_time')}</Text>
+        <Pressable
+          style={{ padding: space.md, borderWidth: 1, borderColor: palette.border, borderRadius: 10, backgroundColor: palette.bgElevated, alignItems: 'center' }}
+          onPress={setReminder}
+        >
+          <Text style={{ fontFamily: fontFamily.bodyMedium, color: palette.textHigh, fontSize: fontSize.md }}>
+            Set 19:00 daily reminder
+          </Text>
+        </Pressable>
       </View>
 
       <View>

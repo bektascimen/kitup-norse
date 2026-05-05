@@ -9,6 +9,7 @@ import { ThemeProvider, fontMap, palette } from '../theme';
 import { queryClient } from '../lib/queryClient';
 import { bootstrapAuth } from '../features/auth/bootstrap';
 import { syncTranslations, subscribeTranslations, useI18nStore } from '../features/i18n';
+import { ensurePermissions } from '../features/notifications/schedule';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,6 +22,10 @@ export default function RootLayout() {
       bootstrapAuth();
     }
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    ensurePermissions();
+  }, []);
 
   useEffect(() => {
     if (!fontsLoaded) return;
