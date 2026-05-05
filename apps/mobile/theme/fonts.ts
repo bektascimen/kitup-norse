@@ -1,18 +1,26 @@
+import { Cinzel_400Regular, Cinzel_600SemiBold, Cinzel_700Bold } from '@expo-google-fonts/cinzel';
 import {
-  Cinzel_400Regular, Cinzel_600SemiBold, Cinzel_700Bold,
-} from '@expo-google-fonts/cinzel';
-import {
-  Inter_400Regular, Inter_500Medium, Inter_600SemiBold,
-} from '@expo-google-fonts/inter';
+  CrimsonPro_400Regular,
+  CrimsonPro_500Medium,
+  CrimsonPro_600SemiBold,
+  CrimsonPro_400Regular_Italic,
+} from '@expo-google-fonts/crimson-pro';
 
 export const fontMap = {
-  Cinzel_400Regular, Cinzel_600SemiBold, Cinzel_700Bold,
-  Inter_400Regular, Inter_500Medium, Inter_600SemiBold,
+  Cinzel_400Regular,
+  Cinzel_600SemiBold,
+  Cinzel_700Bold,
+  CrimsonPro_400Regular,
+  CrimsonPro_500Medium,
+  CrimsonPro_600SemiBold,
+  CrimsonPro_400Regular_Italic,
 };
 
 export const fontFamily = {
   display: 'Cinzel_700Bold',
   displayRegular: 'Cinzel_400Regular',
-  body: 'Inter_400Regular',
-  bodyMedium: 'Inter_500Medium',
+  displayMid: 'Cinzel_600SemiBold',
+  body: 'CrimsonPro_400Regular',
+  bodyMedium: 'CrimsonPro_500Medium',
+  bodyItalic: 'CrimsonPro_400Regular_Italic',
 } as const;

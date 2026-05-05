@@ -1,8 +1,8 @@
 import { createContext, useContext, type PropsWithChildren } from 'react';
-import { palette, radius, space, fontSize } from './tokens';
+import { palette, radius, space, fontSize, tracking } from './tokens';
 import { fontFamily } from './fonts';
 
-const themeValue = { palette, radius, space, fontSize, fontFamily };
+const themeValue = { palette, radius, space, fontSize, tracking, fontFamily };
 type Theme = typeof themeValue;
 
 const Ctx = createContext<Theme>(themeValue);
