@@ -6,6 +6,7 @@ import { useT } from '../../features/i18n';
 import { useActiveCourse, useLessons, useUserProgress } from '../../features/lessons/queries';
 import { prefetchCourse } from '../../features/lessons/prefetch';
 import { dueCount } from '../../features/sr/queue';
+import { syncTodayWidget } from '../../features/widget/sync';
 import { palette, fontFamily, fontSize, space } from '../../theme';
 
 export default function Today() {
@@ -15,9 +16,22 @@ export default function Today() {
   const progress = useUserProgress();
   const reviewsDueQ = useQuery({ queryKey: ['reviews-due'], queryFn: dueCount });
 
+  const completed = new Set((progress.data ?? []).filter(p => p.completed_at).map(p => p.lesson_id));
+  const todays = (lessons.data ?? []).find(l => !completed.has(l.id));
+
   useEffect(() => {
     if (course.data?.id) prefetchCourse(course.data.id);
   }, [course.data?.id]);
+
+  useEffect(() => {
+    if (course.data && todays) {
+      syncTodayWidget({
+        title: t(todays.title_key),
+        day: todays.day_number,
+        totalDays: course.data.day_count,
+      });
+    }
+  }, [course.data?.id, todays?.id]);
 
   if (course.isLoading || lessons.isLoading || progress.isLoading) {
     return <View style={styles.center}><ActivityIndicator color={palette.accent} /></View>;
@@ -25,9 +39,6 @@ export default function Today() {
   if (!course.data) {
     return <View style={styles.center}><Text style={styles.muted}>No course available</Text></View>;
   }
-
-  const completed = new Set((progress.data ?? []).filter(p => p.completed_at).map(p => p.lesson_id));
-  const todays = (lessons.data ?? []).find(l => !completed.has(l.id));
 
   if (!todays) {
     return (

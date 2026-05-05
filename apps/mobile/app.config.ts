@@ -14,7 +14,12 @@ const config: ExpoConfig = {
     resizeMode: 'contain',
     backgroundColor: '#0B0B0F',
   },
-  ios: { supportsTablet: false, bundleIdentifier: 'com.kitup.norse', usesAppleSignIn: true },
+  ios: {
+    supportsTablet: false,
+    bundleIdentifier: 'com.kitup.norse',
+    usesAppleSignIn: true,
+    entitlements: { 'com.apple.security.application-groups': ['group.com.kitup.norse'] },
+  },
   android: {
     package: 'com.kitup.norse',
     adaptiveIcon: {
@@ -27,7 +32,25 @@ const config: ExpoConfig = {
     output: 'static',
     favicon: './assets/images/favicon.png',
   },
-  plugins: ['expo-router', 'expo-font', 'expo-secure-store', 'expo-apple-authentication'],
+  plugins: [
+    'expo-router',
+    'expo-font',
+    'expo-secure-store',
+    'expo-apple-authentication',
+    [
+      '@bacons/apple-targets',
+      {
+        appleTeamId: 'TEAMID',
+        extensions: [
+          {
+            name: 'TodayWidget',
+            bundleIdentifier: 'com.kitup.norse.TodayWidget',
+            entitlements: { 'com.apple.security.application-groups': ['group.com.kitup.norse'] },
+          },
+        ],
+      },
+    ],
+  ],
   experiments: { typedRoutes: true },
   extra: {
     SUPABASE_URL: process.env.SUPABASE_URL,
