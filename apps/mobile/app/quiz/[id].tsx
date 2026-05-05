@@ -3,6 +3,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 import { useQuiz, useSubmitProgress } from '../../features/quiz/quizQuery';
 import { computeQuizResult } from '../../features/quiz/score';
+import { enqueueWrong } from '../../features/sr/queue';
 import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space } from '../../theme';
 
@@ -37,6 +38,7 @@ export default function QuizScreen() {
         Object.entries(answers).map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId })),
       );
       await submit.mutateAsync({ lessonId: data.lesson_id, score: result.score });
+      await enqueueWrong(result.wrongQuestionIds);
       router.replace({ pathname: '/lesson/complete', params: { score: String(result.score) } });
     } else {
       setStep(step + 1);
