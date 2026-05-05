@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { router } from 'expo-router';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '../../lib/supabase';
 import { useT, useI18nStore, syncTranslations } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
 import { sendMagicLink } from '../../features/auth/magicLink';
+import { appleAvailable, signInWithApple } from '../../features/auth/apple';
 import { palette, fontFamily, fontSize, space } from '../../theme';
 import type { Locale } from '@kitup/shared-types';
 
@@ -76,6 +78,15 @@ export default function Profile() {
         </Pressable>
         {sent && <Text style={[styles.muted, { color: palette.success, marginTop: space.sm }]}>Check your email.</Text>}
         {error && <Text style={[styles.muted, { color: palette.danger, marginTop: space.sm }]}>{error}</Text>}
+        {appleAvailable && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={12}
+            style={{ height: 48, marginTop: space.sm }}
+            onPress={() => signInWithApple()}
+          />
+        )}
       </View>
 
       {session && (

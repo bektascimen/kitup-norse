@@ -14,7 +14,7 @@ const config: ExpoConfig = {
     resizeMode: 'contain',
     backgroundColor: '#0B0B0F',
   },
-  ios: { supportsTablet: false, bundleIdentifier: 'com.kitup.norse' },
+  ios: { supportsTablet: false, bundleIdentifier: 'com.kitup.norse', usesAppleSignIn: true },
   android: {
     package: 'com.kitup.norse',
     adaptiveIcon: {
@@ -27,7 +27,7 @@ const config: ExpoConfig = {
     output: 'static',
     favicon: './assets/images/favicon.png',
   },
-  plugins: ['expo-router', 'expo-font', 'expo-secure-store'],
+  plugins: ['expo-router', 'expo-font', 'expo-secure-store', 'expo-apple-authentication'],
   experiments: { typedRoutes: true },
   extra: {
     SUPABASE_URL: process.env.SUPABASE_URL,
