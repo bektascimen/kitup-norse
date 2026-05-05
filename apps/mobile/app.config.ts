@@ -37,7 +37,6 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-secure-store',
     'expo-apple-authentication',
-    'expo-localization',
     '@react-native-community/datetimepicker',
     '@sentry/react-native',
     // Widget extension plugin disabled until appleTeamId is set + signing configured.

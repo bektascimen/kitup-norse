@@ -8,6 +8,7 @@ import { palette, fontFamily, fontSize, space, radius, tracking } from '../../th
 import { syncTranslations } from '../../features/i18n';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
+import type { Locale } from '@kitup/shared-types';
 
 const LANGS = [
   {
@@ -26,13 +27,14 @@ const LANGS = [
 
 export default function Language() {
   const t = useT();
+  const detected = useI18nStore.getState().locale; // device-detected default
   const setLocale = useI18nStore((s) => s.setLocale);
   const finish = useOnboarding((s) => s.setCompleted);
-  const [pressedLocale, setPressedLocale] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Locale>(detected);
 
-  async function pick(locale: 'tr' | 'en') {
-    setLocale(locale);
-    await syncTranslations(locale);
+  async function confirm() {
+    setLocale(selected);
+    await syncTranslations(selected);
     finish();
     router.replace('/(tabs)');
   }
@@ -50,36 +52,40 @@ export default function Language() {
         <CarvedDivider />
         <View style={styles.cards}>
           {LANGS.map((lang, i) => {
-            const pressed = pressedLocale === lang.locale;
+            const isSelected = selected === lang.locale;
+            const isDetected = detected === lang.locale;
             return (
               <Animated.View
                 key={lang.locale}
                 entering={FadeInUp.delay(300 + i * 120).duration(800)}
               >
                 <Pressable
-                  onPressIn={() => setPressedLocale(lang.locale)}
-                  onPressOut={() => setPressedLocale(null)}
-                  onPress={() => pick(lang.locale)}
-                  style={[
-                    styles.card,
-                    pressed && {
-                      borderColor: palette.forge,
-                      backgroundColor: palette.bgElevated,
-                    },
-                  ]}
+                  onPress={() => setSelected(lang.locale)}
+                  style={[styles.card, isSelected && styles.cardSelected]}
                 >
-                  <Text style={styles.rune}>{lang.rune}</Text>
+                  <Text style={[styles.rune, isSelected && styles.runeSelected]}>{lang.rune}</Text>
                   <View style={styles.cardText}>
-                    <Text style={styles.name}>{lang.name}</Text>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.name}>{lang.name}</Text>
+                      {isDetected && <Text style={styles.detectedBadge}>ᛞ TELEFONUN DİLİ</Text>}
+                    </View>
                     <Text style={styles.native}>{lang.native}</Text>
                   </View>
-                  <Text style={styles.arrow}>›</Text>
+                  <Text style={[styles.check, isSelected && styles.checkActive]}>
+                    {isSelected ? '✓' : ''}
+                  </Text>
                 </Pressable>
               </Animated.View>
             );
           })}
         </View>
       </View>
+      <Animated.View entering={FadeInUp.delay(700).duration(700)} style={styles.ctaWrap}>
+        <Pressable style={styles.cta} onPress={confirm}>
+          <Text style={styles.ctaText}>{t('onboarding.cta.continue')}</Text>
+          <Text style={styles.ctaRune}> ›</Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -118,28 +124,68 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(19, 24, 38, 0.6)',
     gap: space.lg,
   },
+  cardSelected: {
+    borderColor: palette.forge,
+    backgroundColor: 'rgba(201, 169, 110, 0.08)',
+  },
   rune: {
     fontFamily: fontFamily.display,
     color: palette.forge,
     fontSize: fontSize.xxl,
     width: 40,
     textAlign: 'center',
+    opacity: 0.6,
+  },
+  runeSelected: {
+    color: palette.ember,
+    opacity: 1,
   },
   cardText: { flex: 1, gap: space.xs },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
   name: {
     fontFamily: fontFamily.displayMid,
     color: palette.parchment,
     fontSize: fontSize.lg,
     letterSpacing: tracking.wide,
   },
+  detectedBadge: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: 9,
+    letterSpacing: tracking.rune,
+    opacity: 0.85,
+  },
   native: {
     fontFamily: fontFamily.bodyItalic,
     color: palette.mist,
     fontSize: fontSize.sm,
   },
-  arrow: {
+  check: {
+    fontFamily: fontFamily.display,
+    color: palette.shadow,
+    fontSize: fontSize.xl,
+    width: 24,
+    textAlign: 'center',
+  },
+  checkActive: { color: palette.forge },
+  ctaWrap: { paddingHorizontal: space.xl, paddingBottom: space.xxxl },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.lg,
+    borderTopWidth: 1,
+    borderTopColor: palette.forge,
+  },
+  ctaText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.parchment,
+    fontSize: fontSize.md,
+    letterSpacing: tracking.wide,
+  },
+  ctaRune: {
     fontFamily: fontFamily.display,
     color: palette.forge,
-    fontSize: fontSize.xl,
+    fontSize: fontSize.lg,
   },
 });
