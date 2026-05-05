@@ -11,6 +11,7 @@ import { mmkvPersister } from '../lib/queryPersist';
 import { bootstrapAuth } from '../features/auth/bootstrap';
 import { syncTranslations, subscribeTranslations, useI18nStore } from '../features/i18n';
 import { ensurePermissions } from '../features/notifications/schedule';
+import { startOutboxListener } from '../features/quiz/outbox';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,6 +27,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     ensurePermissions();
+  }, []);
+
+  useEffect(() => {
+    return startOutboxListener();
   }, []);
 
   useEffect(() => {

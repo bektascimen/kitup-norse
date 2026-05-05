@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../auth/store';
 import { bumpStreakForToday } from '../streak/update';
+import { enqueueProgress } from './outbox';
 
 export function useQuiz(quizId: string | undefined) {
   return useQuery({
@@ -32,14 +33,12 @@ export function useSubmitProgress() {
   return useMutation({
     mutationFn: async (input: { lessonId: string; score: number }) => {
       if (!userId) throw new Error('not authenticated');
+      const item = { lessonId: input.lessonId, score: input.score, ts: new Date().toISOString() };
       const { error } = await supabase.from('user_progress').upsert({
-        user_id: userId,
-        lesson_id: input.lessonId,
-        completed_at: new Date().toISOString(),
-        score: input.score,
-        attempts: 1,
+        user_id: userId, lesson_id: item.lessonId,
+        completed_at: item.ts, score: item.score, attempts: 1,
       }, { onConflict: 'user_id,lesson_id' });
-      if (error) throw error;
+      if (error) enqueueProgress(item);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['user_progress'] });
