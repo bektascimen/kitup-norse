@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@kitup/shared-types';
 import { env } from '../env';
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
-export async function createServerSupabaseClient() {
+export async function createServerSupabaseClient(): Promise<SupabaseClient<Database>> {
   const cookieStore = await cookies();
   return createServerClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
     cookies: {
@@ -18,5 +19,5 @@ export async function createServerSupabaseClient() {
         }
       },
     },
-  });
+  }) as unknown as SupabaseClient<Database>;
 }
