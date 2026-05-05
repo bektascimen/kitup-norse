@@ -1,3 +1,6 @@
+import { initSentry } from '../lib/sentry';
+initSentry(); // module-load side effect — runs once on app start
+
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';

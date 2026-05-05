@@ -55,6 +55,9 @@ const config: ExpoConfig = {
   extra: {
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
+    SENTRY_DSN_MOBILE: process.env.SENTRY_DSN_MOBILE,
+    POSTHOG_API_KEY: process.env.POSTHOG_API_KEY,
+    POSTHOG_HOST: process.env.POSTHOG_HOST,
   },
 };
 
