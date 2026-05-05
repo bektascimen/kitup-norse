@@ -1,115 +1,87 @@
-import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from '../../lib/supabase';
-import { useT, useI18nStore, syncTranslations } from '../../features/i18n';
+import { useT, useI18nStore } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
-import { sendMagicLink } from '../../features/auth/magicLink';
-import { appleAvailable, signInWithApple } from '../../features/auth/apple';
-import { scheduleDailyReminder } from '../../features/notifications/schedule';
-import { palette, fontFamily, fontSize, space } from '../../theme';
-import type { Locale } from '@kitup/shared-types';
+import { useOnboarding, type Path } from '../../features/onboarding/store';
+import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
+import { MenuRow, MenuSectionLabel } from '../../components/atmospherics/MenuRow';
+
+const PATH_LABELS: Record<Path, { tr: string; en: string }> = {
+  wisdom: { tr: 'Bilge — Odin’in patikası', en: 'The Wise — Odin’s path' },
+  warrior: { tr: 'Savaşçı — Tyr’in çağrısı', en: 'The Warrior — Tyr’s call' },
+  traveler: { tr: 'Yolcu — Loki’nin yolu', en: 'The Traveler — Loki’s road' },
+};
 
 export default function Profile() {
   const t = useT();
   const locale = useI18nStore((s) => s.locale);
-  const setLocale = useI18nStore((s) => s.setLocale);
   const session = useAuthStore((s) => s.session);
+  const path = useOnboarding((s) => s.path);
 
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const pathValue = path
+    ? PATH_LABELS[path][locale === 'en' ? 'en' : 'tr']
+    : locale === 'en'
+      ? 'Not chosen'
+      : 'Henüz seçilmedi';
 
-  async function pickLocale(l: Locale) {
-    setLocale(l);
-    await syncTranslations(l);
-  }
+  const accountValue = session?.user?.email
+    ? session.user.email
+    : locale === 'en'
+      ? 'Anonymous traveler'
+      : 'Anonim gezgin';
 
   async function signOut() {
     await supabase.auth.signOut();
     router.replace('/(onboarding)/welcome');
   }
 
-  async function onSendLink() {
-    setError(null);
-    const r = await sendMagicLink(email);
-    r.ok ? setSent(true) : setError(r.error);
-  }
-
-  async function setReminder() {
-    await scheduleDailyReminder({ hour: 19, minute: 0 });
-  }
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
-      <View>
-        <Text style={styles.label}>{t('profile.language')}</Text>
-        <View style={styles.row}>
-          {(['tr', 'en'] as const).map((l) => (
-            <Pressable
-              key={l}
-              style={[styles.chip, locale === l && styles.chipActive]}
-              onPress={() => pickLocale(l)}
-            >
-              <Text style={[styles.chipText, locale === l && styles.chipTextActive]}>{l.toUpperCase()}</Text>
-            </Pressable>
-          ))}
-        </View>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: space.xxxl }}>
+      <View style={styles.heroWrap}>
+        <Text style={styles.eyebrow}>ᛟ {locale === 'en' ? 'PROFILE' : 'PROFİL'}</Text>
+        <Text style={styles.title}>{locale === 'en' ? 'Your Path' : 'Senin Yolun'}</Text>
       </View>
 
-      <View>
-        <Text style={styles.label}>{t('profile.notification_time')}</Text>
-        <Pressable
-          style={{ padding: space.md, borderWidth: 1, borderColor: palette.border, borderRadius: 10, backgroundColor: palette.bgElevated, alignItems: 'center' }}
-          onPress={setReminder}
-        >
-          <Text style={{ fontFamily: fontFamily.bodyMedium, color: palette.textHigh, fontSize: fontSize.md }}>
-            Set 19:00 daily reminder
-          </Text>
-        </Pressable>
-      </View>
+      <MenuSectionLabel>{locale === 'en' ? 'JOURNEY' : 'YOLCULUK'}</MenuSectionLabel>
+      <MenuRow
+        rune="ᚨ"
+        title={locale === 'en' ? 'Path' : 'Yol'}
+        value={pathValue}
+        onPress={() => router.push('/profile/path')}
+      />
+      <MenuRow
+        rune="ᚦ"
+        title={locale === 'en' ? 'Account' : 'Hesap'}
+        value={accountValue}
+        onPress={() => router.push('/profile/account')}
+      />
 
-      <View>
-        <Text style={styles.label}>{t('profile.create_account')}</Text>
-        <TextInput
-          placeholder="you@example.com"
-          placeholderTextColor={palette.textLow}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          style={{
-            backgroundColor: palette.bgElevated, color: palette.textHigh,
-            borderWidth: 1, borderColor: palette.border, borderRadius: 10,
-            padding: space.md, fontFamily: fontFamily.body, fontSize: fontSize.md,
-          }}
-        />
-        <Pressable
-          style={{ marginTop: space.sm, padding: space.md, alignItems: 'center', borderRadius: 10, backgroundColor: palette.accent }}
-          onPress={onSendLink}
-        >
-          <Text style={{ fontFamily: fontFamily.bodyMedium, color: palette.bg, fontSize: fontSize.md }}>
-            {t('profile.signin.email')}
-          </Text>
-        </Pressable>
-        {sent && <Text style={[styles.muted, { color: palette.success, marginTop: space.sm }]}>Check your email.</Text>}
-        {error && <Text style={[styles.muted, { color: palette.danger, marginTop: space.sm }]}>{error}</Text>}
-        {appleAvailable && (
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-            cornerRadius={12}
-            style={{ height: 48, marginTop: space.sm }}
-            onPress={() => signInWithApple()}
-          />
-        )}
-      </View>
+      <MenuSectionLabel>{locale === 'en' ? 'PREFERENCES' : 'TERCİHLER'}</MenuSectionLabel>
+      <MenuRow
+        rune="ᚷ"
+        title={locale === 'en' ? 'Language' : 'Dil'}
+        value={locale === 'tr' ? 'Türkçe' : 'English'}
+        onPress={() => router.push('/profile/language')}
+      />
+      <MenuRow
+        rune="ᛒ"
+        title={locale === 'en' ? 'Notifications' : 'Bildirimler'}
+        value={locale === 'en' ? 'Daily reminder' : 'Günlük hatırlatma'}
+        onPress={() => router.push('/profile/notifications')}
+      />
+
+      <MenuSectionLabel>{locale === 'en' ? 'ABOUT' : 'HAKKINDA'}</MenuSectionLabel>
+      <MenuRow
+        rune="ᛞ"
+        title={locale === 'en' ? 'About kitUP Norse' : 'kitUP Norse Hakkında'}
+        onPress={() => router.push('/profile/about')}
+      />
 
       {session && (
-        <Pressable style={styles.signOut} onPress={signOut}>
-          <Text style={styles.signOutText}>{t('profile.sign_out')}</Text>
-        </Pressable>
+        <View style={{ paddingTop: space.xl }}>
+          <MenuRow rune="ᚺ" title={t('profile.sign_out')} onPress={signOut} destructive />
+        </View>
       )}
     </ScrollView>
   );
@@ -117,13 +89,18 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg },
-  label: { fontFamily: fontFamily.bodyMedium, color: palette.textMid, fontSize: fontSize.sm, letterSpacing: 1.5, marginBottom: space.sm },
-  row: { flexDirection: 'row', gap: space.sm },
-  chip: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: 999, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.bgElevated },
-  chipActive: { borderColor: palette.accent, backgroundColor: palette.accentMuted },
-  chipText: { fontFamily: fontFamily.body, color: palette.textMid, fontSize: fontSize.sm },
-  chipTextActive: { color: palette.textHigh },
-  muted: { fontFamily: fontFamily.body, color: palette.textMid, fontSize: fontSize.sm },
-  signOut: { marginTop: space.xl, padding: space.md, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: palette.danger },
-  signOutText: { fontFamily: fontFamily.bodyMedium, color: palette.danger, fontSize: fontSize.md },
+  heroWrap: { paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: space.lg },
+  eyebrow: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+  },
+  title: {
+    fontFamily: fontFamily.display,
+    color: palette.parchment,
+    fontSize: fontSize.xxl,
+    letterSpacing: tracking.tight,
+    marginTop: space.xs,
+  },
 });
