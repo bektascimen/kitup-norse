@@ -6033,26 +6033,35 @@ git commit -m "chore(ci): husky pre-commit + expo prebuild smoke"
 
 - [ ] **Step 2: Write `scripts/seed-norse.ts`**
 
+The script signs in as a real admin user with email + password and uses that JWT for every Supabase call. No `service_role` key — the admin's JWT carries `app_metadata.role = 'admin'`, and RLS allows the writes.
+
 ```ts
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.SUPABASE_URL!;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY!;
 const adminEmail = process.env.SEED_ADMIN_EMAIL!;
 const adminPassword = process.env.SEED_ADMIN_PASSWORD!;
 
-if (!url || !serviceKey || !adminEmail || !adminPassword) {
-  console.error('Missing env: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD');
+if (!url || !publishableKey || !adminEmail || !adminPassword) {
+  console.error('Missing env: SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY / SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD');
   process.exit(1);
 }
 
-const admin = createClient(url, serviceKey);
+// Anonymous client used only for the password sign-in.
+const anon = createClient(url, publishableKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
-async function getAdminAccessToken(): Promise<string> {
-  // Use a sign-in flow to obtain an access token whose JWT carries the admin role.
-  const { data, error } = await admin.auth.signInWithPassword({ email: adminEmail, password: adminPassword });
+async function signInAdmin(): Promise<{ token: string; admin: ReturnType<typeof createClient> }> {
+  const { data, error } = await anon.auth.signInWithPassword({ email: adminEmail, password: adminPassword });
   if (error || !data.session) throw new Error(error?.message ?? 'admin sign-in failed');
-  return data.session.access_token;
+  const token = data.session.access_token;
+  const admin = createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { authorization: `Bearer ${token}` } },
+  });
+  return { token, admin };
 }
 
 async function startGeneration(token: string): Promise<string> {
@@ -6070,7 +6079,7 @@ async function startGeneration(token: string): Promise<string> {
   return (await res.json() as { jobId: string }).jobId;
 }
 
-async function waitForJob(jobId: string): Promise<string> {
+async function waitForJob(admin: ReturnType<typeof createClient>, jobId: string): Promise<string> {
   while (true) {
     const { data } = await admin.from('generation_jobs').select('*').eq('id', jobId).single();
     if (!data) throw new Error('job vanished');
@@ -6081,7 +6090,7 @@ async function waitForJob(jobId: string): Promise<string> {
   }
 }
 
-async function publishCourse(courseId: string) {
+async function publishCourse(admin: ReturnType<typeof createClient>, courseId: string) {
   const { error } = await admin.from('courses').update({ status: 'published' }).eq('id', courseId);
   if (error) throw error;
 }
@@ -6097,13 +6106,13 @@ async function translateToEn(token: string) {
 }
 
 async function main() {
-  const token = await getAdminAccessToken();
+  const { token, admin } = await signInAdmin();
   console.log('starting generation…');
   const jobId = await startGeneration(token);
   console.log('jobId:', jobId);
-  const courseId = await waitForJob(jobId);
+  const courseId = await waitForJob(admin, jobId);
   console.log('courseId:', courseId);
-  await publishCourse(courseId);
+  await publishCourse(admin, courseId);
   console.log('published. translating to EN…');
   await translateToEn(token);
   console.log('done.');
