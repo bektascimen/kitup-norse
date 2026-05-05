@@ -12,6 +12,7 @@ import { bootstrapAuth } from '../features/auth/bootstrap';
 import { syncTranslations, subscribeTranslations, useI18nStore } from '../features/i18n';
 import { ensurePermissions } from '../features/notifications/schedule';
 import { startOutboxListener } from '../features/quiz/outbox';
+import { subscribeContent } from '../features/realtime/subscribe';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     return startOutboxListener();
+  }, []);
+
+  useEffect(() => {
+    return subscribeContent();
   }, []);
 
   useEffect(() => {
