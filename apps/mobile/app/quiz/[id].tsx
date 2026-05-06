@@ -1,6 +1,6 @@
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeIn,
@@ -38,6 +38,20 @@ export default function QuizScreen() {
   // day-complete screen with the saved score instead of letting the user
   // re-take the quiz. (Spaced repetition handles wrong answers separately.)
   const lessonProgress = useLessonProgress(quiz.data?.lesson_id);
+  const completedScore = lessonProgress.data?.completed_at
+    ? (lessonProgress.data.score ?? 0)
+    : null;
+
+  // Side-effect navigation must live in an effect — calling router.replace
+  // inline during render schedules a setState on the navigation container
+  // mid-render and React rightly screams about it.
+  useEffect(() => {
+    if (completedScore === null) return;
+    router.replace({
+      pathname: '/lesson/complete',
+      params: { score: String(completedScore), alreadyDone: '1' },
+    });
+  }, [completedScore]);
 
   // shake / pulse animation values
   const shake = useSharedValue(0);
@@ -63,12 +77,9 @@ export default function QuizScreen() {
     );
   }
 
-  // Already completed — short-circuit to the day-complete screen.
-  if (lessonProgress.data?.completed_at) {
-    router.replace({
-      pathname: '/lesson/complete',
-      params: { score: String(lessonProgress.data.score ?? 0), alreadyDone: '1' },
-    });
+  // Already completed — render an empty backdrop while the effect above
+  // pushes us off to /lesson/complete on the next tick.
+  if (completedScore !== null) {
     return (
       <View style={styles.center}>
         <Stack.Screen options={headerOptions} />
