@@ -2,21 +2,37 @@ import type { Locale } from '@kitup/shared-types';
 import { supabase } from '../../lib/supabase';
 import { i18nCache, useI18nStore } from './store';
 
+// PostgREST caps a single response at the project's max-rows limit
+// (1000 by default). The translations table is bigger than that — pull
+// in pages until we've drained everything newer than the local cursor.
+const PAGE_SIZE = 1000;
+
 export async function syncTranslations(locale: Locale): Promise<void> {
-  const since = i18nCache.lastSyncedAt(locale);
-  const { data, error } = await supabase
-    .from('translations')
-    .select('key,value,updated_at')
-    .eq('locale', locale)
-    .gt('updated_at', since);
-  if (error) {
-    console.warn('[i18n sync] failed', error.message);
-    return;
-  }
-  if (data && data.length > 0) {
+  let cursor = i18nCache.lastSyncedAt(locale);
+  let bumped = false;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('translations')
+      .select('key,value,updated_at')
+      .eq('locale', locale)
+      .gt('updated_at', cursor)
+      .order('updated_at', { ascending: true })
+      .limit(PAGE_SIZE);
+
+    if (error) {
+      console.warn('[i18n sync] failed', error.message);
+      return;
+    }
+    if (!data || data.length === 0) break;
+
     i18nCache.upsert(locale, data);
-    useI18nStore.getState().triggerRender();
+    bumped = true;
+    cursor = data[data.length - 1]!.updated_at;
+    if (data.length < PAGE_SIZE) break;
   }
+
+  if (bumped) useI18nStore.getState().triggerRender();
 }
 
 export function subscribeTranslations(locale: Locale): () => void {
@@ -26,7 +42,11 @@ export function subscribeTranslations(locale: Locale): () => void {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'translations', filter: `locale=eq.${locale}` },
       (payload) => {
-        const row = (payload.new ?? payload.old) as { key: string; value: string; updated_at: string };
+        const row = (payload.new ?? payload.old) as {
+          key: string;
+          value: string;
+          updated_at: string;
+        };
         if (row && payload.new) {
           i18nCache.upsert(locale, [row]);
           useI18nStore.getState().triggerRender();
