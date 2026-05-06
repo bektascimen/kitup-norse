@@ -119,7 +119,6 @@ export default function Today() {
             <View style={styles.chip}>
               <Text style={styles.chipRune}>ᛗ</Text>
               <Text style={styles.chipText}>
-                {streakDays}{' '}
                 {t(streakDays === 1 ? 'today.streak.days_one' : 'today.streak.days_other', {
                   count: streakDays,
                 })}
