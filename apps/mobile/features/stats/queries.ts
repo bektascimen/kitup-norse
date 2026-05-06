@@ -1,10 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../auth/store';
+import { useActiveCourse, useLessons } from '../lessons/queries';
 
-// Each archetype's course is exactly 21 days. Hardcoded because counting
-// the active course's lessons would require resolving the path here too,
-// and the cadence is part of the product spec — not a runtime variable.
 const COURSE_DAYS = 21;
 
 export type LearnerStats = {
@@ -17,34 +15,57 @@ export type LearnerStats = {
 };
 
 /**
- * Aggregates the four numbers the Profile screen surfaces.
- * One hook, one query key — refetches together so the grid never
- * shows mismatched counts during a partial load.
+ * Aggregates the four numbers the Profile screen surfaces, scoped to
+ * the user's currently chosen path. Switching paths drops the picture
+ * to that course's progress alone — completed lessons + avg score +
+ * due reviews are all filtered against this course's lesson IDs.
+ *
+ * Streak stays global (one record per user, calendar-day based) since
+ * the schema has no per-path streak. Acceptable for the demo: it still
+ * tells the learner whether they showed up today, regardless of path.
  */
 export function useLearnerStats() {
   const userId = useAuthStore((s) => s.session?.user.id);
+  const course = useActiveCourse();
+  const lessons = useLessons(course.data?.id);
+
+  const lessonIds = (lessons.data ?? []).map((l) => l.id);
+  const courseKey = course.data?.id ?? 'no-course';
+
   return useQuery({
-    enabled: !!userId,
-    queryKey: ['learner_stats', userId],
+    enabled: !!userId && lessons.isSuccess,
+    queryKey: ['learner_stats', userId, courseKey],
     queryFn: async (): Promise<LearnerStats> => {
       const nowIso = new Date().toISOString();
 
       const [progressRes, streakRes, dueRes] = await Promise.all([
-        supabase
-          .from('user_progress')
-          .select('score, completed_at')
-          .eq('user_id', userId!)
-          .not('completed_at', 'is', null),
+        lessonIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : supabase
+              .from('user_progress')
+              .select('score, completed_at')
+              .eq('user_id', userId!)
+              .in('lesson_id', lessonIds)
+              .not('completed_at', 'is', null),
         supabase
           .from('user_streaks')
           .select('current_streak, longest_streak')
           .eq('user_id', userId!)
           .maybeSingle(),
-        supabase
-          .from('review_queue')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId!)
-          .lte('due_at', nowIso),
+        // Reviews due now, restricted to questions whose quiz belongs
+        // to a lesson in the active course. The !inner forces the join
+        // to filter parent rows, and the count is exact for the chip.
+        lessonIds.length === 0
+          ? Promise.resolve({ count: 0, error: null })
+          : supabase
+              .from('review_queue')
+              .select('id, quiz_questions!inner(quizzes!inner(lesson_id))', {
+                count: 'exact',
+                head: true,
+              })
+              .eq('user_id', userId!)
+              .in('quiz_questions.quizzes.lesson_id', lessonIds)
+              .lte('due_at', nowIso),
       ]);
 
       if (progressRes.error) throw progressRes.error;
