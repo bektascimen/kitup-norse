@@ -64,7 +64,7 @@ export default function Welcome() {
   const t = useT();
   return (
     <View style={styles.container}>
-      <GradientBackdrop variant="dawn" />
+      <GradientBackdrop variant="night" />
       <ScatteredRunes />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
