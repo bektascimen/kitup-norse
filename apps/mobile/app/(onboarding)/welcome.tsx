@@ -4,17 +4,64 @@ import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
-import { RuneColumn } from '../../components/atmospherics/RuneColumn';
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
+
+// Each rune sits at an asymmetric anchor — top/right/bottom percentages
+// keep them anchored to the canvas edges, never colliding with the
+// centered text column. The fade values stagger depth so the eye
+// reads them as carved into the background, not stamped on top.
+type Rune = {
+  glyph: string;
+  top?: string;
+  bottom?: string;
+  left?: string;
+  right?: string;
+  size: number;
+  opacity: number;
+  delay: number;
+};
+
+const SCATTERED: Rune[] = [
+  { glyph: 'ᚦ', top: '8%', left: '10%', size: 22, opacity: 0.28, delay: 200 },
+  { glyph: 'ᚱ', top: '14%', right: '12%', size: 26, opacity: 0.22, delay: 360 },
+  { glyph: 'ᚨ', top: '38%', left: '6%', size: 20, opacity: 0.32, delay: 520 },
+  { glyph: 'ᛚ', top: '46%', right: '7%', size: 24, opacity: 0.26, delay: 680 },
+  { glyph: 'ᚷ', bottom: '26%', left: '12%', size: 22, opacity: 0.28, delay: 840 },
+  { glyph: 'ᛞ', bottom: '18%', right: '14%', size: 20, opacity: 0.22, delay: 1000 },
+];
+
+function ScatteredRunes() {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {SCATTERED.map((r, i) => (
+        <Animated.Text
+          key={`${r.glyph}-${i}`}
+          entering={FadeIn.delay(r.delay).duration(1400)}
+          style={[
+            styles.scatterRune,
+            {
+              top: r.top as unknown as number | undefined,
+              bottom: r.bottom as unknown as number | undefined,
+              left: r.left as unknown as number | undefined,
+              right: r.right as unknown as number | undefined,
+              fontSize: r.size,
+              opacity: r.opacity,
+            },
+          ]}
+        >
+          {r.glyph}
+        </Animated.Text>
+      ))}
+    </View>
+  );
+}
 
 export default function Welcome() {
   const t = useT();
   return (
     <View style={styles.container}>
       <GradientBackdrop variant="dawn" />
-      <View style={styles.runeColumnLeft}>
-        <RuneColumn />
-      </View>
+      <ScatteredRunes />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
           {t('onboarding.welcome.eyebrow')}
@@ -39,12 +86,17 @@ export default function Welcome() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.bg },
-  runeColumnLeft: { position: 'absolute', left: space.md, top: '20%' },
+  scatterRune: {
+    position: 'absolute',
+    fontFamily: fontFamily.display,
+    color: palette.forge,
+    letterSpacing: 4,
+    includeFontPadding: false,
+  },
   content: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: space.xxl,
-    paddingLeft: space.xxxl,
   },
   eyebrow: {
     fontFamily: fontFamily.displayMid,
