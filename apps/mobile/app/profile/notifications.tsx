@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { ensurePermissions, scheduleDailyReminder } from '../../features/notifications/schedule';
 import { mmkv } from '../../lib/storage';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
@@ -11,16 +11,16 @@ import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop
 const TIME_KEY = 'notifications.time';
 
 const TIMES = [
-  { label: '07:00', hour: 7, minute: 0, eyebrowTr: 'Şafak', eyebrowEn: 'Dawn' },
-  { label: '12:00', hour: 12, minute: 0, eyebrowTr: 'Öğle', eyebrowEn: 'Midday' },
-  { label: '19:00', hour: 19, minute: 0, eyebrowTr: 'Alacakaranlık', eyebrowEn: 'Twilight' },
-  { label: '21:00', hour: 21, minute: 0, eyebrowTr: 'Gece', eyebrowEn: 'Night' },
+  { label: '07:00', hour: 7, minute: 0, eyebrowKey: 'profile.notifications.time.dawn' },
+  { label: '12:00', hour: 12, minute: 0, eyebrowKey: 'profile.notifications.time.midday' },
+  { label: '19:00', hour: 19, minute: 0, eyebrowKey: 'profile.notifications.time.twilight' },
+  { label: '21:00', hour: 21, minute: 0, eyebrowKey: 'profile.notifications.time.night' },
 ];
 
 type Status = 'unknown' | 'granted' | 'denied';
 
 export default function ProfileNotifications() {
-  const locale = useI18nStore((s) => s.locale);
+  const t = useT();
   const [status, setStatus] = useState<Status>('unknown');
   const [selectedLabel, setSelectedLabel] = useState<string>(
     () => mmkv.getString(TIME_KEY) ?? '19:00',
@@ -46,66 +46,52 @@ export default function ProfileNotifications() {
     setTimeout(() => setSavedToast(false), 1800);
   }
 
-  const T = (tr: string, en: string) => (locale === 'en' ? en : tr);
-
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: T('Bildirimler', 'Notifications') }} />
+      <Stack.Screen options={{ title: t('profile.notifications.title') }} />
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>ᛒ {T('GÜNLÜK ÇAĞRI', 'DAILY CALL')}</Text>
-        <Text style={styles.body}>
-          {T(
-            'Yggdrasil seni hangi saatte çağırsın? Her gün yumuşak bir hatırlatma gelir.',
-            'When should Yggdrasil call you? A soft reminder lands each day at this hour.',
-          )}
-        </Text>
+        <Text style={styles.eyebrow}>ᛒ {t('profile.notifications.eyebrow')}</Text>
+        <Text style={styles.body}>{t('profile.notifications.body')}</Text>
 
         <View style={styles.permissionBlock}>
-          <Text style={styles.sectionLabel}>{T('İZİN', 'PERMISSION')}</Text>
+          <Text style={styles.sectionLabel}>{t('profile.notifications.section.permission')}</Text>
           {status === 'granted' ? (
             <View style={styles.permissionRow}>
-              <Text style={styles.permissionGranted}>
-                ✓ {T('İzin verildi', 'Permission granted')}
-              </Text>
-              <Text style={styles.permissionHint}>
-                {T('iOS Ayarlar’dan istediğin zaman değiştir.', 'Change anytime in iOS Settings.')}
-              </Text>
+              <Text style={styles.permissionGranted}>✓ {t('profile.notifications.granted')}</Text>
+              <Text style={styles.permissionHint}>{t('profile.notifications.granted_hint')}</Text>
             </View>
           ) : (
             <Pressable style={styles.permissionAsk} onPress={requestPermission}>
-              <Text style={styles.permissionAskText}>{T('İZİN İSTE', 'REQUEST PERMISSION')}</Text>
-              <Text style={styles.permissionHint}>
-                {T(
-                  'Bildirim göndermek için iOS izni gerekiyor.',
-                  'iOS permission is required to send notifications.',
-                )}
-              </Text>
+              <Text style={styles.permissionAskText}>{t('profile.notifications.request')}</Text>
+              <Text style={styles.permissionHint}>{t('profile.notifications.request_hint')}</Text>
             </Pressable>
           )}
         </View>
 
-        <Text style={styles.sectionLabel}>{T('SAAT', 'TIME')}</Text>
+        <Text style={styles.sectionLabel}>{t('profile.notifications.section.time')}</Text>
         <View style={styles.times}>
-          {TIMES.map((t) => {
-            const active = selectedLabel === t.label;
+          {TIMES.map((time) => {
+            const active = selectedLabel === time.label;
             return (
               <Pressable
-                key={t.label}
-                onPress={() => pickTime(t.label, t.hour, t.minute)}
+                key={time.label}
+                onPress={() => pickTime(time.label, time.hour, time.minute)}
                 style={[styles.timeCard, active && styles.timeCardActive]}
               >
                 <Text style={[styles.timeRune, active && styles.timeRuneActive]}>
-                  {locale === 'en' ? t.eyebrowEn : t.eyebrowTr}
+                  {t(time.eyebrowKey)}
                 </Text>
-                <Text style={[styles.timeLabel, active && styles.timeLabelActive]}>{t.label}</Text>
+                <Text style={[styles.timeLabel, active && styles.timeLabelActive]}>
+                  {time.label}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
         {savedToast && (
-          <Text style={styles.savedToast}>ᛞ {T('Hatırlatma kaydedildi', 'Reminder saved')}</Text>
+          <Text style={styles.savedToast}>ᛞ {t('profile.notifications.saved_toast')}</Text>
         )}
       </View>
     </View>

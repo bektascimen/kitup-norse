@@ -55,7 +55,7 @@ export default function Today() {
         <GradientBackdrop variant="night" />
         <Text style={styles.wolfRune}>🐺</Text>
         <CarvedDivider />
-        <Text style={styles.muted}>Loki gizlemiş olmalı… içerik henüz yayınlanmamış.</Text>
+        <Text style={styles.muted}>{t('today.empty.body')}</Text>
       </View>
     );
   }
@@ -64,7 +64,7 @@ export default function Today() {
     return (
       <View style={styles.center}>
         <GradientBackdrop variant="night" />
-        <Text style={styles.eyebrow}>ᛞ YOLCULUK TAMAM ᛞ</Text>
+        <Text style={styles.eyebrow}>{t('today.complete.eyebrow')}</Text>
         <Text style={styles.title}>{t('day.complete.title')}</Text>
         <CarvedDivider />
         <Text style={styles.muted}>{t('day.complete.body')}</Text>
@@ -88,7 +88,8 @@ export default function Today() {
         }}
       >
         <Animated.Text entering={FadeIn.duration(700)} style={styles.dayBadge}>
-          ᛞ DAY {String(todays.day_number).padStart(2, '0')} / {course.data.day_count}
+          ᛞ {t('today.day_badge')} {String(todays.day_number).padStart(2, '0')} /{' '}
+          {course.data.day_count}
         </Animated.Text>
 
         <Animated.View entering={FadeInUp.delay(120).duration(800)}>
@@ -105,7 +106,7 @@ export default function Today() {
             )}
             <View style={styles.heroOverlay} />
             <View style={styles.heroBody}>
-              <Text style={styles.heroEyebrow}>BUGÜNÜN HİKAYESİ</Text>
+              <Text style={styles.heroEyebrow}>{t('today.hero.eyebrow')}</Text>
               <Text numberOfLines={3} style={styles.heroTitle}>
                 {t(todays.title_key)}
               </Text>

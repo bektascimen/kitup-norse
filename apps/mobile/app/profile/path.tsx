@@ -2,37 +2,10 @@ import { Stack, router } from 'expo-router';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useState } from 'react';
-import { useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { useOnboarding, type Path } from '../../features/onboarding/store';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
-
-const COPY = {
-  tr: {
-    eyebrow: 'ᛟ YOLUNU SEÇ',
-    body: 'Verdiğin cevap, sonraki kursları şekillendirir — anlatıcının sesini, mitlerin seçimini, quizin tonunu.',
-    cta: 'KAYDET',
-    paths: {
-      wisdom: { name: 'Bilge', sub: 'Odin’in patikası', body: 'Filozofik mitler, kozmik düzen.' },
-      warrior: { name: 'Savaşçı', sub: 'Tyr’in çağrısı', body: 'Kahramanlar, Ragnarök, cesaret.' },
-      traveler: { name: 'Yolcu', sub: 'Loki’nin yolu', body: 'Dönüşüm, kurnazlık, geçişler.' },
-    },
-  },
-  en: {
-    eyebrow: 'ᛟ CHOOSE YOUR PATH',
-    body: 'Your answer shapes the courses ahead — the narrator’s voice, the myths chosen, the tone of the quizzes.',
-    cta: 'SAVE',
-    paths: {
-      wisdom: { name: 'The Wise', sub: 'Odin’s path', body: 'Philosophical myths, cosmic order.' },
-      warrior: { name: 'The Warrior', sub: 'Tyr’s call', body: 'Heroes, Ragnarök, courage.' },
-      traveler: {
-        name: 'The Traveler',
-        sub: 'Loki’s road',
-        body: 'Transformation, cunning, passage.',
-      },
-    },
-  },
-} as const;
 
 const PATH_DEFS: { key: Path; rune: string }[] = [
   { key: 'wisdom', rune: 'ᚨ' },
@@ -41,8 +14,7 @@ const PATH_DEFS: { key: Path; rune: string }[] = [
 ];
 
 export default function ProfilePath() {
-  const locale = useI18nStore((s) => s.locale);
-  const copy = COPY[locale === 'en' ? 'en' : 'tr'];
+  const t = useT();
   const current = useOnboarding((s) => s.path);
   const setPath = useOnboarding((s) => s.setPath);
   const [selected, setSelected] = useState<Path | null>(current);
@@ -55,19 +27,18 @@ export default function ProfilePath() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: space.xxxl }}>
-      <Stack.Screen options={{ title: locale === 'en' ? 'Path' : 'Yol' }} />
+      <Stack.Screen options={{ title: t('profile.path.title') }} />
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(600)} style={styles.eyebrow}>
-          {copy.eyebrow}
+          {t('profile.path.eyebrow')}
         </Animated.Text>
         <Animated.Text entering={FadeInUp.delay(120).duration(700)} style={styles.body}>
-          {copy.body}
+          {t('profile.path.body')}
         </Animated.Text>
         <View style={styles.cards}>
           {PATH_DEFS.map((def, i) => {
             const isSelected = selected === def.key;
-            const c = copy.paths[def.key];
             return (
               <Animated.View key={def.key} entering={FadeInUp.delay(220 + i * 100).duration(700)}>
                 <Pressable
@@ -77,10 +48,10 @@ export default function ProfilePath() {
                   <Text style={[styles.rune, isSelected && styles.runeSelected]}>{def.rune}</Text>
                   <View style={styles.cardText}>
                     <View style={styles.headerRow}>
-                      <Text style={styles.name}>{c.name}</Text>
-                      <Text style={styles.sub}>{c.sub}</Text>
+                      <Text style={styles.name}>{t(`path.${def.key}.name`)}</Text>
+                      <Text style={styles.sub}>{t(`path.${def.key}.sub`)}</Text>
                     </View>
-                    <Text style={styles.bodyText}>{c.body}</Text>
+                    <Text style={styles.bodyText}>{t(`profile.path.${def.key}.body`)}</Text>
                   </View>
                   <Text style={[styles.check, isSelected && styles.checkActive]}>
                     {isSelected ? '✓' : ''}
@@ -93,7 +64,7 @@ export default function ProfilePath() {
       </View>
       <View style={styles.ctaWrap}>
         <Pressable style={styles.cta} onPress={save}>
-          <Text style={styles.ctaText}>{copy.cta}</Text>
+          <Text style={styles.ctaText}>{t('common.cta.save')}</Text>
           <Text style={styles.ctaRune}> ›</Text>
         </Pressable>
       </View>

@@ -1,50 +1,43 @@
 import { Stack } from 'expo-router';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Constants from 'expo-constants';
-import { useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 
 export default function ProfileAbout() {
-  const locale = useI18nStore((s) => s.locale);
-  const T = (tr: string, en: string) => (locale === 'en' ? en : tr);
+  const t = useT();
   const version = Constants.expoConfig?.version ?? '0.1.0';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: space.xxxl }}>
-      <Stack.Screen options={{ title: T('Hakkında', 'About') }} />
+      <Stack.Screen options={{ title: t('profile.about.title') }} />
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>ᛞ {T('YOLCULUK', 'JOURNEY')}</Text>
+        <Text style={styles.eyebrow}>ᛞ {t('profile.about.eyebrow')}</Text>
         <Text style={styles.title}>kitUP Norse</Text>
-        <Text style={styles.subtitle}>
-          {T(
-            '21 günde Norse mitolojisine atmosferik bir giriş.',
-            'An atmospheric 21-day introduction to Norse mythology.',
-          )}
-        </Text>
+        <Text style={styles.subtitle}>{t('profile.about.subtitle')}</Text>
         <CarvedDivider />
 
-        <Text style={styles.sectionLabel}>{T('SÜRÜM', 'VERSION')}</Text>
+        <Text style={styles.sectionLabel}>{t('profile.about.section.version')}</Text>
         <Text style={styles.value}>{version}</Text>
 
-        <Text style={styles.sectionLabel}>{T('İÇERİK ÜRETİMİ', 'CONTENT GENERATION')}</Text>
+        <Text style={styles.sectionLabel}>{t('profile.about.section.content')}</Text>
         <Text style={styles.value}>Gemini 2.5 Flash Lite · Supabase Edge Functions</Text>
 
-        <Text style={styles.sectionLabel}>{T('GÖRSELLER', 'IMAGERY')}</Text>
+        <Text style={styles.sectionLabel}>{t('profile.about.section.imagery')}</Text>
         <Text style={styles.value}>Wikimedia Commons — public domain Norse art</Text>
 
-        <Text style={styles.sectionLabel}>{T('YAZILIM', 'BUILT WITH')}</Text>
+        <Text style={styles.sectionLabel}>{t('profile.about.section.built_with')}</Text>
         <Text style={styles.value}>Expo SDK 52 · React Native · Supabase · TypeScript</Text>
 
         <CarvedDivider />
 
         <Text style={styles.poem}>
-          {T(
-            '“Cattle die, kindred die,\nthou thyself shalt die;\none thing I know that never dies:\nthe fame of a dead man’s deeds.”',
-            '“Cattle die, kindred die,\nthou thyself shalt die;\none thing I know that never dies:\nthe fame of a dead man’s deeds.”',
-          )}
+          {
+            '“Cattle die, kindred die,\nthou thyself shalt die;\none thing I know that never dies:\nthe fame of a dead man’s deeds.”'
+          }
         </Text>
         <Text style={styles.poemAttribution}>— Hávamál, st. 77</Text>
       </View>

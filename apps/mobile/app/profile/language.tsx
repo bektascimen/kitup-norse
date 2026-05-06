@@ -2,7 +2,7 @@ import { Stack, router } from 'expo-router';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useState } from 'react';
-import { useI18nStore, syncTranslations } from '../../features/i18n';
+import { useI18nStore, useT, syncTranslations } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import type { Locale } from '@kitup/shared-types';
@@ -18,6 +18,7 @@ const LANGS = [
 ];
 
 export default function ProfileLanguage() {
+  const t = useT();
   const current = useI18nStore((s) => s.locale);
   const setLocale = useI18nStore((s) => s.setLocale);
   const [selected, setSelected] = useState<Locale>(current);
@@ -34,11 +35,11 @@ export default function ProfileLanguage() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: current === 'en' ? 'Language' : 'Dil' }} />
+      <Stack.Screen options={{ title: t('profile.language.title') }} />
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(600)} style={styles.eyebrow}>
-          ᚷ {current === 'en' ? 'CHOOSE YOUR TONGUE' : 'DİLİNİ SEÇ'}
+          {t('profile.language.eyebrow')}
         </Animated.Text>
         <View style={styles.cards}>
           {LANGS.map((lang, i) => {
@@ -68,7 +69,7 @@ export default function ProfileLanguage() {
       </View>
       <View style={styles.ctaWrap}>
         <Pressable style={styles.cta} onPress={save}>
-          <Text style={styles.ctaText}>{current === 'en' ? 'SAVE' : 'KAYDET'}</Text>
+          <Text style={styles.ctaText}>{t('common.cta.save')}</Text>
           <Text style={styles.ctaRune}> ›</Text>
         </Pressable>
       </View>

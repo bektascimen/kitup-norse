@@ -5,7 +5,7 @@ import { useLocalSearchParams, router, Stack } from 'expo-router';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useLesson } from '../../features/lessons/lessonQuery';
 import { useLessonProgress } from '../../features/lessons/lessonProgressQuery';
-import { useT, useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking, radius } from '../../theme';
 import Body from '../../components/Markdown';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
@@ -14,17 +14,15 @@ import { HeaderBack } from '../../components/atmospherics/HeaderBack';
 
 export default function LessonScreen() {
   const t = useT();
-  const locale = useI18nStore((s) => s.locale);
   const { id } = useLocalSearchParams<{ id: string }>();
   const lesson = useLesson(id);
   const progress = useLessonProgress(id);
 
-  const T = (tr: string, en: string) => (locale === 'en' ? en : tr);
   const headerOptions = {
     title: lesson.data
-      ? `${T('Gün', 'Day')} ${String(lesson.data.day_number).padStart(2, '0')}`
-      : T('Ders', 'Lesson'),
-    headerLeft: () => <HeaderBack label={T('BUGÜN', 'TODAY')} />,
+      ? `${t('lesson.day_long')} ${String(lesson.data.day_number).padStart(2, '0')}`
+      : t('lesson.header.title'),
+    headerLeft: () => <HeaderBack label={t('lesson.header.back')} />,
     headerStyle: { backgroundColor: palette.bg },
     headerTintColor: palette.parchment,
     headerShadowVisible: false,
@@ -79,12 +77,12 @@ export default function LessonScreen() {
         <View style={styles.body}>
           <View style={styles.dayRow}>
             <Animated.Text entering={FadeIn.duration(700)} style={styles.day}>
-              ᛞ {T('GÜN', 'DAY')} {String(lesson.data.day_number).padStart(2, '0')}
+              ᛞ {t('lesson.day_short')} {String(lesson.data.day_number).padStart(2, '0')}
             </Animated.Text>
             {completed && (
               <Animated.View entering={FadeIn.duration(700)} style={styles.completedBadge}>
                 <Text style={styles.completedBadgeText}>
-                  ✓ {T('TAMAMLANDI', 'COMPLETED')}
+                  ✓ {t('lesson.completed_badge')}
                   {completedScore != null ? ` · ${completedScore}%` : ''}
                 </Text>
               </Animated.View>
@@ -107,7 +105,7 @@ export default function LessonScreen() {
                   onPress={() => router.replace('/(tabs)')}
                 >
                   <Text style={[styles.ctaText, { color: palette.moss }]}>
-                    ↩ {T('BUGÜNE DÖN', 'BACK TO TODAY')}
+                    {t('lesson.cta.back_to_today')}
                   </Text>
                   <Text style={[styles.ctaRune, { color: palette.moss }]}> ›</Text>
                 </Pressable>

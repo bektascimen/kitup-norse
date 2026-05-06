@@ -17,7 +17,7 @@ export default function Welcome() {
       </View>
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
-          ᛇ 21 GÜN ᛇ NORSE MITOLOJI
+          {t('onboarding.welcome.eyebrow')}
         </Animated.Text>
         <Animated.Text entering={FadeInUp.delay(200).duration(900)} style={styles.title}>
           {t('onboarding.welcome.title')}

@@ -2,49 +2,31 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useT } from '../../features/i18n';
-import { useI18nStore } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 
-// Hardcoded Turkish/English fallbacks — these screens describe the offer,
-// they live outside the dynamic translation table for now.
-const COPY = {
-  tr: {
-    eyebrow: 'ᚱ  GÜNDE 5 DAKIKA',
-    bigUnit: 'GÜN',
-    body: 'Her gün kısa bir hikaye, hızlı bir quiz. Yanlış bildiklerini sistem sana tekrar sorar — bilim destekli aralıklı tekrar.',
-  },
-  en: {
-    eyebrow: 'ᚱ  FIVE MINUTES A DAY',
-    bigUnit: 'DAYS',
-    body: 'Each day, a short story and a quick quiz. The ones you miss return to you — spaced repetition, quietly insistent.',
-  },
-} as const;
-
 export default function Why() {
   const t = useT();
-  const locale = useI18nStore((s) => s.locale);
-  const copy = COPY[locale === 'en' ? 'en' : 'tr'];
 
   return (
     <View style={styles.container}>
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
-          {copy.eyebrow}
+          {t('onboarding.why.eyebrow')}
         </Animated.Text>
         <View style={styles.numberRow}>
           <Animated.Text entering={FadeInUp.delay(150).duration(900)} style={styles.bigNumber}>
             21
           </Animated.Text>
           <Animated.Text entering={FadeInUp.delay(300).duration(900)} style={styles.bigUnit}>
-            {copy.bigUnit}
+            {t('onboarding.why.big_unit')}
           </Animated.Text>
         </View>
         <CarvedDivider />
         <Animated.Text entering={FadeInUp.delay(500).duration(900)} style={styles.body}>
-          {copy.body}
+          {t('onboarding.why.body')}
         </Animated.Text>
       </View>
       <Animated.View entering={FadeInUp.delay(800).duration(700)} style={styles.ctaWrap}>
@@ -75,16 +57,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: space.lg,
-    paddingTop: space.md, // give Cinzel's tall glyphs (e.g. "2") room above the cap-height
+    paddingTop: space.md,
   },
   bigNumber: {
     fontFamily: fontFamily.display,
     color: palette.parchment,
-    fontSize: fontSize.mega + 24, // 80
+    fontSize: fontSize.mega + 24,
     letterSpacing: tracking.normal,
-    lineHeight: (fontSize.mega + 24) * 1.1, // generous leading prevents top-glyph clip
+    lineHeight: (fontSize.mega + 24) * 1.1,
     includeFontPadding: false,
-    paddingHorizontal: 4, // safety against side-clipping on certain glyph widths
+    paddingHorizontal: 4,
   },
   bigUnit: {
     fontFamily: fontFamily.displayMid,

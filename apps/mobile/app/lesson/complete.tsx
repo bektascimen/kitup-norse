@@ -12,19 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useT } from '../../features/i18n';
-import { useI18nStore } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
-
-const TOMORROW_MSG = {
-  tr: 'Yarın seni bekliyorum.',
-  en: 'I will wait for you tomorrow.',
-} as const;
-
-const ALREADY_DONE_MSG = {
-  tr: 'Bu günü çoktan kazandın.',
-  en: 'You have already earned this day.',
-} as const;
 
 export default function Complete() {
   const t = useT();
@@ -32,7 +21,6 @@ export default function Complete() {
     score: string;
     alreadyDone?: string;
   }>();
-  const locale = useI18nStore((s) => s.locale);
   const isReplay = alreadyDone === '1';
 
   const pulse = useSharedValue(0);
@@ -53,7 +41,8 @@ export default function Complete() {
     transform: [{ scale: 1 + pulse.value * 0.05 }],
   }));
 
-  const tomorrow = (isReplay ? ALREADY_DONE_MSG : TOMORROW_MSG)[locale === 'en' ? 'en' : 'tr'];
+  const eyebrow = isReplay ? t('day.complete.eyebrow.replay') : t('day.complete.eyebrow');
+  const tomorrow = isReplay ? t('day.complete.body.replay') : t('day.complete.body.tomorrow');
 
   return (
     <View style={styles.container}>
@@ -62,14 +51,7 @@ export default function Complete() {
 
       <View style={styles.top}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
-          ᛞ{' '}
-          {isReplay
-            ? locale === 'en'
-              ? 'ALREADY EARNED'
-              : 'ZATEN KAZANILDI'
-            : locale === 'en'
-              ? 'TODAY’S DEED'
-              : 'BUGÜNLÜK'}
+          {eyebrow}
         </Animated.Text>
       </View>
 

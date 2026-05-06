@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { View, Text, Pressable, TextInput, StyleSheet, ScrollView } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
-import { useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
 import { sendMagicLink } from '../../features/auth/magicLink';
 import { appleAvailable, signInWithApple } from '../../features/auth/apple';
@@ -10,13 +10,11 @@ import { palette, fontFamily, fontSize, space, radius, tracking } from '../../th
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 
 export default function ProfileAccount() {
-  const locale = useI18nStore((s) => s.locale);
+  const t = useT();
   const session = useAuthStore((s) => s.session);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const T = (tr: string, en: string) => (locale === 'en' ? en : tr);
 
   async function onSendLink() {
     setError(null);
@@ -30,27 +28,22 @@ export default function ProfileAccount() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: space.xxxl }}>
-      <Stack.Screen options={{ title: T('Hesap', 'Account') }} />
+      <Stack.Screen options={{ title: t('profile.account.title') }} />
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>ᚦ {T('KİMLİK', 'IDENTITY')}</Text>
+        <Text style={styles.eyebrow}>ᚦ {t('profile.account.eyebrow')}</Text>
         {isLinked ? (
           <Text style={styles.body}>
-            {T('Bağlı hesap:', 'Linked account:')}{' '}
+            {t('profile.account.linked_label')}{' '}
             <Text style={styles.bodyEmphasis}>{session.user.email}</Text>
           </Text>
         ) : (
-          <Text style={styles.body}>
-            {T(
-              'Şu an anonim bir gezginsin. Hesap oluşturarak ilerlemeni cihazlar arası taşı.',
-              'You are an anonymous traveler. Link an identity to carry your progress across devices.',
-            )}
-          </Text>
+          <Text style={styles.body}>{t('profile.account.body.unlinked')}</Text>
         )}
 
         {!isLinked && (
           <>
-            <Text style={styles.sectionLabel}>{T('E-POSTA İLE', 'WITH EMAIL')}</Text>
+            <Text style={styles.sectionLabel}>{t('profile.account.section.email')}</Text>
             <TextInput
               placeholder="you@example.com"
               placeholderTextColor={palette.shadow}
@@ -61,19 +54,15 @@ export default function ProfileAccount() {
               style={styles.input}
             />
             <Pressable style={styles.primaryCta} onPress={onSendLink}>
-              <Text style={styles.primaryCtaText}>
-                {T('SİHİRLİ BAĞLANTI GÖNDER', 'SEND MAGIC LINK')}
-              </Text>
+              <Text style={styles.primaryCtaText}>{t('profile.account.send_link')}</Text>
             </Pressable>
-            {sent && (
-              <Text style={styles.toast}>ᛞ {T('E-postanı kontrol et', 'Check your email')}</Text>
-            )}
+            {sent && <Text style={styles.toast}>ᛞ {t('profile.account.email_sent')}</Text>}
             {error && <Text style={styles.errorText}>{error}</Text>}
 
             {appleAvailable && (
               <>
                 <View style={styles.divider} />
-                <Text style={styles.sectionLabel}>{T('APPLE İLE', 'WITH APPLE')}</Text>
+                <Text style={styles.sectionLabel}>{t('profile.account.section.apple')}</Text>
                 <AppleAuthentication.AppleAuthenticationButton
                   buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
                   buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}

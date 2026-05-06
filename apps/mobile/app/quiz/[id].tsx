@@ -15,7 +15,7 @@ import { useQuiz, useSubmitProgress } from '../../features/quiz/quizQuery';
 import { computeQuizResult } from '../../features/quiz/score';
 import { enqueueWrong } from '../../features/sr/queue';
 import { useLessonProgress } from '../../features/lessons/lessonProgressQuery';
-import { useT, useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { HeaderBack } from '../../components/atmospherics/HeaderBack';
@@ -25,7 +25,6 @@ const EMPTY_RUNE = '᛫';
 
 export default function QuizScreen() {
   const t = useT();
-  const locale = useI18nStore((s) => s.locale);
   const { id } = useLocalSearchParams<{ id: string }>();
   const quiz = useQuiz(id);
   const submit = useSubmitProgress();
@@ -45,8 +44,8 @@ export default function QuizScreen() {
   const glow = useSharedValue(0);
 
   const headerOptions = {
-    title: locale === 'en' ? 'Quiz' : 'Quiz',
-    headerLeft: () => <HeaderBack label={locale === 'en' ? 'LESSON' : 'DERS'} />,
+    title: t('quiz.header.title'),
+    headerLeft: () => <HeaderBack label={t('quiz.header.back')} />,
     headerStyle: { backgroundColor: palette.bg },
     headerTintColor: palette.parchment,
     headerShadowVisible: false,
@@ -217,9 +216,7 @@ export default function QuizScreen() {
             <Pressable style={styles.cta} onPress={next} disabled={submitting}>
               <Text style={styles.ctaText}>
                 {submitting
-                  ? locale === 'en'
-                    ? 'SAVING…'
-                    : 'KAYDEDİYOR…'
+                  ? t('quiz.saving')
                   : isLast
                     ? t('quiz.finish').toUpperCase()
                     : t('quiz.next').toUpperCase()}

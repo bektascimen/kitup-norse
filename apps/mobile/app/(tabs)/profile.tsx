@@ -1,17 +1,17 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { useT, useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
 import { useOnboarding, type Path } from '../../features/onboarding/store';
 import { useLearnerStats } from '../../features/stats/queries';
 import { palette, fontFamily, fontSize, space, tracking, radius } from '../../theme';
 import { MenuRow, MenuSectionLabel } from '../../components/atmospherics/MenuRow';
 
-const PATH_LABELS: Record<Path, { tr: string; en: string }> = {
-  wisdom: { tr: 'Bilge — Odin’in patikası', en: 'The Wise — Odin’s path' },
-  warrior: { tr: 'Savaşçı — Tyr’in çağrısı', en: 'The Warrior — Tyr’s call' },
-  traveler: { tr: 'Yolcu — Loki’nin yolu', en: 'The Traveler — Loki’s road' },
+const PATH_SUMMARY_KEY: Record<Path, string> = {
+  wisdom: 'profile.path_summary.wisdom',
+  warrior: 'profile.path_summary.warrior',
+  traveler: 'profile.path_summary.traveler',
 };
 
 type StatTile = {
@@ -40,57 +40,44 @@ function StatGrid({ tiles }: { tiles: StatTile[] }) {
 
 export default function Profile() {
   const t = useT();
-  const locale = useI18nStore((s) => s.locale);
   const session = useAuthStore((s) => s.session);
   const path = useOnboarding((s) => s.path);
   const stats = useLearnerStats();
 
-  const pathValue = path
-    ? PATH_LABELS[path][locale === 'en' ? 'en' : 'tr']
-    : locale === 'en'
-      ? 'Not chosen'
-      : 'Henüz seçilmedi';
+  const pathValue = path ? t(PATH_SUMMARY_KEY[path]) : t('profile.path.not_chosen');
+  const accountValue = session?.user?.email ?? t('profile.account.anonymous');
 
   const dash = '—';
+  const longest = stats.data?.longestStreak ?? 0;
   const tiles: StatTile[] = [
     {
       rune: 'ᛞ',
-      label: locale === 'en' ? 'DAYS DONE' : 'TAMAMLANAN',
+      label: t('profile.stats.days_done'),
       value: stats.data ? `${stats.data.completed}/${stats.data.totalDays}` : dash,
-      hint: locale === 'en' ? 'lessons' : 'ders',
+      hint: t('profile.stats.days_done.hint'),
     },
     {
       rune: 'ᚦ',
-      label: locale === 'en' ? 'AVG SCORE' : 'ORT. SKOR',
+      label: t('profile.stats.avg_score'),
       value: stats.data?.avgScore != null ? `${stats.data.avgScore}%` : dash,
-      hint: locale === 'en' ? 'across quizzes' : 'tüm quizlerde',
+      hint: t('profile.stats.avg_score.hint'),
     },
     {
       rune: 'ᛟ',
-      label: locale === 'en' ? 'STREAK' : 'SERİ',
+      label: t('profile.stats.streak'),
       value: stats.data ? String(stats.data.currentStreak) : dash,
       hint:
-        stats.data && stats.data.longestStreak > 0
-          ? locale === 'en'
-            ? `best ${stats.data.longestStreak}`
-            : `en uzun ${stats.data.longestStreak}`
-          : locale === 'en'
-            ? 'days in a row'
-            : 'arka arkaya',
+        longest > 0
+          ? t('profile.stats.streak.hint.best', { n: longest })
+          : t('profile.stats.streak.hint.fallback'),
     },
     {
       rune: 'ᚱ',
-      label: locale === 'en' ? 'REVIEWS' : 'TEKRAR',
+      label: t('profile.stats.reviews'),
       value: stats.data ? String(stats.data.dueReviews) : dash,
-      hint: locale === 'en' ? 'due now' : 'şimdi',
+      hint: t('profile.stats.reviews.hint'),
     },
   ];
-
-  const accountValue = session?.user?.email
-    ? session.user.email
-    : locale === 'en'
-      ? 'Anonymous traveler'
-      : 'Anonim gezgin';
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -100,45 +87,45 @@ export default function Profile() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: space.xxxl }}>
       <View style={styles.heroWrap}>
-        <Text style={styles.eyebrow}>ᛟ {locale === 'en' ? 'PROFILE' : 'PROFİL'}</Text>
-        <Text style={styles.title}>{locale === 'en' ? 'Your Path' : 'Senin Yolun'}</Text>
+        <Text style={styles.eyebrow}>{t('profile.header.eyebrow')}</Text>
+        <Text style={styles.title}>{t('profile.header.title')}</Text>
       </View>
 
-      <MenuSectionLabel>{locale === 'en' ? 'STANDING' : 'DURUM'}</MenuSectionLabel>
+      <MenuSectionLabel>{t('profile.section.standing')}</MenuSectionLabel>
       <StatGrid tiles={tiles} />
 
-      <MenuSectionLabel>{locale === 'en' ? 'JOURNEY' : 'YOLCULUK'}</MenuSectionLabel>
+      <MenuSectionLabel>{t('profile.section.journey')}</MenuSectionLabel>
       <MenuRow
         rune="ᚨ"
-        title={locale === 'en' ? 'Path' : 'Yol'}
+        title={t('profile.menu.path')}
         value={pathValue}
         onPress={() => router.push('/profile/path')}
       />
       <MenuRow
         rune="ᚦ"
-        title={locale === 'en' ? 'Account' : 'Hesap'}
+        title={t('profile.menu.account')}
         value={accountValue}
         onPress={() => router.push('/profile/account')}
       />
 
-      <MenuSectionLabel>{locale === 'en' ? 'PREFERENCES' : 'TERCİHLER'}</MenuSectionLabel>
+      <MenuSectionLabel>{t('profile.section.preferences')}</MenuSectionLabel>
       <MenuRow
         rune="ᚷ"
-        title={locale === 'en' ? 'Language' : 'Dil'}
-        value={locale === 'tr' ? 'Türkçe' : 'English'}
+        title={t('profile.language')}
+        value={t('app.language.native')}
         onPress={() => router.push('/profile/language')}
       />
       <MenuRow
         rune="ᛒ"
-        title={locale === 'en' ? 'Notifications' : 'Bildirimler'}
-        value={locale === 'en' ? 'Daily reminder' : 'Günlük hatırlatma'}
+        title={t('profile.menu.notifications')}
+        value={t('profile.menu.notifications.value')}
         onPress={() => router.push('/profile/notifications')}
       />
 
-      <MenuSectionLabel>{locale === 'en' ? 'ABOUT' : 'HAKKINDA'}</MenuSectionLabel>
+      <MenuSectionLabel>{t('profile.section.about')}</MenuSectionLabel>
       <MenuRow
         rune="ᛞ"
-        title={locale === 'en' ? 'About kitUP Norse' : 'kitUP Norse Hakkında'}
+        title={t('profile.menu.about')}
         onPress={() => router.push('/profile/about')}
       />
 

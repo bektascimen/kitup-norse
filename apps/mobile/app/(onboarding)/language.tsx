@@ -44,7 +44,7 @@ export default function Language() {
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(800)} style={styles.eyebrow}>
-          ᛟ CHOOSE YOUR TONGUE ᛟ
+          {t('onboarding.language.eyebrow')}
         </Animated.Text>
         <Animated.Text entering={FadeInUp.delay(150).duration(800)} style={styles.title}>
           {t('onboarding.language.title')}
@@ -67,7 +67,11 @@ export default function Language() {
                   <View style={styles.cardText}>
                     <View style={styles.nameRow}>
                       <Text style={styles.name}>{lang.name}</Text>
-                      {isDetected && <Text style={styles.detectedBadge}>ᛞ TELEFONUN DİLİ</Text>}
+                      {isDetected && (
+                        <Text style={styles.detectedBadge}>
+                          {t('onboarding.language.detected_badge')}
+                        </Text>
+                      )}
                     </View>
                     <Text style={styles.native}>{lang.native}</Text>
                   </View>

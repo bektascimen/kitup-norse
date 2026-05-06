@@ -1,11 +1,11 @@
 import { Stack } from 'expo-router';
-import { useI18nStore } from '../../features/i18n';
+import { useT } from '../../features/i18n';
 import { palette, fontFamily } from '../../theme';
 import { HeaderBack } from '../../components/atmospherics/HeaderBack';
 
 function ProfileBack() {
-  const locale = useI18nStore((s) => s.locale);
-  return <HeaderBack label={locale === 'en' ? 'PROFILE' : 'PROFİL'} fallback="/(tabs)/profile" />;
+  const t = useT();
+  return <HeaderBack label={t('profile.header.back')} fallback="/(tabs)/profile" />;
 }
 
 export default function ProfileLayout() {

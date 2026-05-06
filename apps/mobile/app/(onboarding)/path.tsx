@@ -8,55 +8,6 @@ import { palette, fontFamily, fontSize, space, radius, tracking } from '../../th
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 
-const COPY = {
-  tr: {
-    eyebrow: 'ᛟ İLK KARAR',
-    title: 'Senin yolun nedir, gezgin?',
-    body: 'Verdiğin cevap, 21 günlük yolculuğunu şekillendirir — anlatıcının sesini, mitlerin seçimini, quizin tonunu.',
-    cta: 'YOLU SEÇ',
-    paths: {
-      wisdom: {
-        name: 'Bilge',
-        sub: 'Odin’in patikası',
-        body: 'Filozofik mitler, kozmik düzen, kelimelerin gücü.',
-      },
-      warrior: {
-        name: 'Savaşçı',
-        sub: 'Tyr’in çağrısı',
-        body: 'Kahramanlar, Ragnarök, cesaretin sınavı.',
-      },
-      traveler: {
-        name: 'Yolcu',
-        sub: 'Loki’nin yolu',
-        body: 'Dönüşüm, kurnazlık, dünyalar arası geçiş.',
-      },
-    },
-  },
-  en: {
-    eyebrow: 'ᛟ FIRST CHOICE',
-    title: 'Which path do you walk, traveler?',
-    body: 'Your answer shapes the 21-day journey — the narrator’s voice, the myths chosen, the tone of the quizzes.',
-    cta: 'CHOOSE PATH',
-    paths: {
-      wisdom: {
-        name: 'The Wise',
-        sub: 'Odin’s path',
-        body: 'Philosophical myths, cosmic order, the power of words.',
-      },
-      warrior: {
-        name: 'The Warrior',
-        sub: 'Tyr’s call',
-        body: 'Heroes, Ragnarök, the trial of courage.',
-      },
-      traveler: {
-        name: 'The Traveler',
-        sub: 'Loki’s road',
-        body: 'Transformation, cunning, journeys between worlds.',
-      },
-    },
-  },
-} as const;
-
 const PATH_DEFS: { key: Path; rune: string }[] = [
   { key: 'wisdom', rune: 'ᚨ' },
   { key: 'warrior', rune: 'ᛏ' },
@@ -66,7 +17,6 @@ const PATH_DEFS: { key: Path; rune: string }[] = [
 export default function PathPicker() {
   const t = useT();
   const locale = useI18nStore((s) => s.locale);
-  const copy = COPY[locale === 'en' ? 'en' : 'tr'];
   const setPath = useOnboarding((s) => s.setPath);
   const finish = useOnboarding((s) => s.setCompleted);
   const [selected, setSelected] = useState<Path | null>(null);
@@ -74,7 +24,6 @@ export default function PathPicker() {
   async function confirm() {
     if (!selected) return;
     setPath(selected);
-    // Make sure translations for the chosen locale are fresh before tabs render.
     await syncTranslations(locale);
     finish();
     router.replace('/(tabs)');
@@ -85,19 +34,18 @@ export default function PathPicker() {
       <GradientBackdrop variant="night" />
       <View style={styles.content}>
         <Animated.Text entering={FadeIn.duration(800)} style={styles.eyebrow}>
-          {copy.eyebrow}
+          {t('onboarding.path.eyebrow')}
         </Animated.Text>
         <Animated.Text entering={FadeInUp.delay(150).duration(800)} style={styles.title}>
-          {copy.title}
+          {t('onboarding.path.title')}
         </Animated.Text>
         <CarvedDivider />
         <Animated.Text entering={FadeInUp.delay(250).duration(800)} style={styles.bodyHint}>
-          {copy.body}
+          {t('onboarding.path.body')}
         </Animated.Text>
         <View style={styles.cards}>
           {PATH_DEFS.map((def, i) => {
             const isSelected = selected === def.key;
-            const c = copy.paths[def.key];
             return (
               <Animated.View key={def.key} entering={FadeInUp.delay(400 + i * 120).duration(800)}>
                 <Pressable
@@ -107,10 +55,10 @@ export default function PathPicker() {
                   <Text style={[styles.rune, isSelected && styles.runeSelected]}>{def.rune}</Text>
                   <View style={styles.cardText}>
                     <View style={styles.headerRow}>
-                      <Text style={styles.name}>{c.name}</Text>
-                      <Text style={styles.sub}>{c.sub}</Text>
+                      <Text style={styles.name}>{t(`path.${def.key}.name`)}</Text>
+                      <Text style={styles.sub}>{t(`path.${def.key}.sub`)}</Text>
                     </View>
-                    <Text style={styles.bodyText}>{c.body}</Text>
+                    <Text style={styles.bodyText}>{t(`onboarding.path.${def.key}.body`)}</Text>
                   </View>
                   <Text style={[styles.check, isSelected && styles.checkActive]}>
                     {isSelected ? '✓' : ''}
@@ -128,7 +76,7 @@ export default function PathPicker() {
           disabled={!selected}
         >
           <Text style={[styles.ctaText, !selected && styles.ctaTextDisabled]}>
-            {selected ? copy.cta : t('onboarding.cta.continue')}
+            {selected ? t('onboarding.path.cta') : t('onboarding.cta.continue')}
           </Text>
           <Text style={[styles.ctaRune, !selected && styles.ctaRuneDisabled]}> ›</Text>
         </Pressable>
