@@ -47,14 +47,24 @@ export default function RootLayout() {
     let unsub: (() => void) | undefined;
     (async () => {
       const locale = useI18nStore.getState().locale;
-      await syncTranslations(locale);
-      useI18nStore.getState().setReady(true);
+      try {
+        await syncTranslations(locale);
+      } finally {
+        // Always release the splash gate — a network outage shouldn't
+        // trap the user. The cache still has the last good payload.
+        useI18nStore.getState().setReady(true);
+      }
       unsub = subscribeTranslations(locale);
     })();
     return () => unsub?.();
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) return null;
+  const i18nReady = useI18nStore((s) => s.ready);
+
+  // Hold the splash until both fonts AND the first translations sync land.
+  // Otherwise screens that call t('some.new.key') flash the literal key
+  // for ~100ms while the cache is being filled.
+  if (!fontsLoaded || !i18nReady) return null;
 
   return (
     <PersistQueryClientProvider
