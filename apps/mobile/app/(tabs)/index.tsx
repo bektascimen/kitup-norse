@@ -27,6 +27,20 @@ export default function Today() {
   );
   const todays = (lessons.data ?? []).find((l) => !completed.has(l.id));
 
+  // Day-gating: one lesson per calendar day. If the user finished any
+  // lesson today, hide the next one until tomorrow — the cadence the
+  // 21-day journey was designed around.
+  const completedToday = (progress.data ?? []).some((p) => {
+    if (!p.completed_at) return false;
+    const done = new Date(p.completed_at);
+    const now = new Date();
+    return (
+      done.getFullYear() === now.getFullYear() &&
+      done.getMonth() === now.getMonth() &&
+      done.getDate() === now.getDate()
+    );
+  });
+
   useEffect(() => {
     if (course.data?.id) prefetchCourse(course.data.id);
   }, [course.data?.id]);
@@ -68,6 +82,18 @@ export default function Today() {
         <Text style={styles.title}>{t('day.complete.title')}</Text>
         <CarvedDivider />
         <Text style={styles.muted}>{t('day.complete.body')}</Text>
+      </View>
+    );
+  }
+
+  if (completedToday) {
+    return (
+      <View style={styles.center}>
+        <GradientBackdrop variant="night" />
+        <Text style={styles.eyebrow}>{t('today.rest.eyebrow')}</Text>
+        <Text style={styles.title}>{t('day.complete.title')}</Text>
+        <CarvedDivider />
+        <Text style={styles.muted}>{t('day.complete.body.tomorrow')}</Text>
       </View>
     );
   }
