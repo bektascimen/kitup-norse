@@ -22,16 +22,22 @@ export default function Today() {
   const streak = useUserStreak();
   const reviewsDueQ = useQuery({ queryKey: ['reviews-due'], queryFn: dueCount });
 
+  // Restrict progress checks to the active course — switching paths
+  // shouldn't strand the user on yesterday's "today is done" screen
+  // because they finished a lesson on a different course earlier today.
+  const activeLessonIds = new Set((lessons.data ?? []).map((l) => l.id));
   const completed = new Set(
-    (progress.data ?? []).filter((p) => p.completed_at).map((p) => p.lesson_id),
+    (progress.data ?? [])
+      .filter((p) => p.completed_at && activeLessonIds.has(p.lesson_id))
+      .map((p) => p.lesson_id),
   );
   const todays = (lessons.data ?? []).find((l) => !completed.has(l.id));
 
-  // Day-gating: one lesson per calendar day. If the user finished any
-  // lesson today, hide the next one until tomorrow — the cadence the
-  // 21-day journey was designed around.
+  // Day-gating: one lesson per calendar day on this course. Completion
+  // on a different path doesn't count toward today's gate.
   const completedToday = (progress.data ?? []).some((p) => {
     if (!p.completed_at) return false;
+    if (!activeLessonIds.has(p.lesson_id)) return false;
     const done = new Date(p.completed_at);
     const now = new Date();
     return (

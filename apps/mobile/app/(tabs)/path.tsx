@@ -26,7 +26,12 @@ export default function Path() {
     );
   }
 
-  const completedRows = (progress.data ?? []).filter((p) => p.completed_at);
+  // Only consider progress against THIS course. A lesson the user
+  // finished on a different path must not lock today's slot here.
+  const activeLessonIds = new Set((lessons.data ?? []).map((l) => l.id));
+  const completedRows = (progress.data ?? []).filter(
+    (p) => p.completed_at && activeLessonIds.has(p.lesson_id),
+  );
   const completedDays = new Set(
     completedRows
       .map((p) => (lessons.data ?? []).find((l) => l.id === p.lesson_id)?.day_number)
