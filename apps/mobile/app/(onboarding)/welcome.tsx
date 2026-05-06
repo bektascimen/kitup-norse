@@ -21,13 +21,17 @@ type Rune = {
   delay: number;
 };
 
+// Top band sits above the eyebrow (~22% Y), bottom band fills the
+// negative space between the body line and the CTA. Nothing lands in
+// the title/body strip (~30%–60% Y), so the runes never collide with
+// text regardless of how the translations wrap.
 const SCATTERED: Rune[] = [
-  { glyph: 'ᚦ', top: '8%', left: '10%', size: 22, opacity: 0.28, delay: 200 },
-  { glyph: 'ᚱ', top: '14%', right: '12%', size: 26, opacity: 0.22, delay: 360 },
-  { glyph: 'ᚨ', top: '38%', left: '6%', size: 20, opacity: 0.32, delay: 520 },
-  { glyph: 'ᛚ', top: '46%', right: '7%', size: 24, opacity: 0.26, delay: 680 },
-  { glyph: 'ᚷ', bottom: '26%', left: '12%', size: 22, opacity: 0.28, delay: 840 },
-  { glyph: 'ᛞ', bottom: '18%', right: '14%', size: 20, opacity: 0.22, delay: 1000 },
+  { glyph: 'ᚦ', top: '7%', left: '8%', size: 22, opacity: 0.28, delay: 200 },
+  { glyph: 'ᚱ', top: '13%', right: '10%', size: 26, opacity: 0.22, delay: 360 },
+  { glyph: 'ᚨ', bottom: '38%', left: '6%', size: 20, opacity: 0.32, delay: 520 },
+  { glyph: 'ᛚ', bottom: '32%', right: '14%', size: 24, opacity: 0.26, delay: 680 },
+  { glyph: 'ᚷ', bottom: '22%', left: '24%', size: 22, opacity: 0.26, delay: 840 },
+  { glyph: 'ᛞ', bottom: '14%', right: '8%', size: 20, opacity: 0.22, delay: 1000 },
 ];
 
 function ScatteredRunes() {
