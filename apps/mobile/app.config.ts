@@ -38,7 +38,12 @@ const config: ExpoConfig = {
     'expo-secure-store',
     'expo-apple-authentication',
     '@react-native-community/datetimepicker',
-    '@sentry/react-native',
+    // '@sentry/react-native' build-time plugin removed: it injects a
+    // PhaseScriptExecution that uploads source maps to Sentry, which
+    // requires SENTRY_AUTH_TOKEN/ORG/PROJECT in env. Personal-team
+    // device builds don't have those and the script fails the whole
+    // build. Runtime crash reporting still works through initSentry()
+    // + the DSN env var; only the source-map upload is skipped.
     // Widget extension plugin disabled until appleTeamId is set + signing configured.
     // Re-enable after replacing 'TEAMID' with your real Apple Developer team id.
     // [
