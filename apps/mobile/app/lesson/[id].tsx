@@ -36,11 +36,13 @@ export default function LessonScreen() {
   const progress = useLessonProgress(id);
 
   // Resume-where-you-left-off: restore the last scroll Y once content
-  // is measured, throttle-save while the user reads, drop the saved
-  // offset once the lesson is marked complete (re-entry should always
-  // start from the top in that case).
+  // is measured, throttle-save while the user reads, capture the final
+  // Y on every drag/momentum end (the leading-edge throttle alone
+  // misses the resting position), and drop the saved offset once the
+  // lesson is marked complete (re-entry should always start fresh).
   const scrollRef = useRef<ScrollView>(null);
   const lastSaveTsRef = useRef(0);
+  const lastYRef = useRef(0);
   const restoredRef = useRef(false);
   const initialY = useRef(getLessonScroll(id)).current;
 
@@ -49,11 +51,20 @@ export default function LessonScreen() {
   }, [id, progress.data?.completed_at]);
 
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const y = e.nativeEvent.contentOffset.y;
+    // iOS bounce can report Y past contentSize during overscroll;
+    // clamp to ≥0 so we never persist negative or junk offsets.
+    const y = Math.max(0, e.nativeEvent.contentOffset.y);
+    lastYRef.current = y;
     const now = Date.now();
     if (now - lastSaveTsRef.current < SCROLL_SAVE_INTERVAL_MS) return;
     lastSaveTsRef.current = now;
     saveLessonScroll(id, y);
+  }
+
+  // Always persist the resting position when scrolling stops, so the
+  // last-known offset matches what the user is actually looking at.
+  function flushScroll() {
+    saveLessonScroll(id, lastYRef.current);
   }
 
   function onContentSizeChange(_w: number, h: number) {
@@ -62,10 +73,10 @@ export default function LessonScreen() {
       restoredRef.current = true;
       return;
     }
-    // Only restore once content is tall enough to actually hold the
-    // saved offset; otherwise the call clamps to bottom and the user
-    // lands further down than they ever scrolled.
-    if (h <= initialY + 80) return;
+    // ScrollView clamps internally — passing a Y past contentSize
+    // simply lands the viewport at the maximum scroll. So we don't
+    // need to gate on h here; just fire once content has measured.
+    if (h <= 0) return;
     scrollRef.current?.scrollTo({ y: initialY, animated: false });
     restoredRef.current = true;
   }
@@ -111,6 +122,8 @@ export default function LessonScreen() {
         style={styles.container}
         contentContainerStyle={{ paddingBottom: space.xxxl }}
         onScroll={onScroll}
+        onScrollEndDrag={flushScroll}
+        onMomentumScrollEnd={flushScroll}
         scrollEventThrottle={64}
         onContentSizeChange={onContentSizeChange}
       >
