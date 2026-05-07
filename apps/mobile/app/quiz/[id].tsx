@@ -1,6 +1,6 @@
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeIn,
@@ -42,11 +42,19 @@ export default function QuizScreen() {
     ? (lessonProgress.data.score ?? 0)
     : null;
 
+  // Once the user starts submitting their first attempt, suppress the
+  // "already done" redirect — otherwise lessonProgress refetches mid-
+  // submit, the row appears with completed_at, and this effect races
+  // the manual router.replace in next() to push the replay variant on
+  // top of the legitimate fresh complete screen.
+  const justSubmittedRef = useRef(false);
+
   // Side-effect navigation must live in an effect — calling router.replace
   // inline during render schedules a setState on the navigation container
   // mid-render and React rightly screams about it.
   useEffect(() => {
     if (completedScore === null) return;
+    if (justSubmittedRef.current) return;
     router.replace({
       pathname: '/lesson/complete',
       params: { score: String(completedScore), alreadyDone: '1' },
@@ -129,6 +137,9 @@ export default function QuizScreen() {
     // Last question → finish flow.
     setSubmitting(true);
     setSubmitError(null);
+    // Latch this BEFORE the mutation so the redirect-effect can't race
+    // the legitimate router.replace below once useLessonProgress refetches.
+    justSubmittedRef.current = true;
     const result = computeQuizResult(
       questions.map((qq) => ({ id: qq.id, correctOptionIds: qq.correctOptionIds })),
       Object.entries(answers).map(([questionId, selectedOptionId]) => ({
