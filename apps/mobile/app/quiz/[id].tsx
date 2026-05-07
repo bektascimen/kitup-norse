@@ -70,7 +70,11 @@ export default function QuizScreen() {
     if (justSubmittedRef.current) return;
     router.replace({
       pathname: '/lesson/complete',
-      params: { score: String(completedScore), alreadyDone: '1' },
+      params: {
+        score: String(completedScore),
+        alreadyDone: '1',
+        lessonId: quiz.data?.lesson_id ?? '',
+      },
     });
   }, [completedScore]);
 
@@ -173,7 +177,7 @@ export default function QuizScreen() {
     clearQuizSession(id);
     router.replace({
       pathname: '/lesson/complete',
-      params: { score: String(result.score) },
+      params: { score: String(result.score), lessonId: data.lesson_id },
     });
   }
 

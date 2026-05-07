@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,8 @@ import Body from '../../components/Markdown';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 import { HeaderBack } from '../../components/atmospherics/HeaderBack';
+import { AskSkaldModal } from '../../features/skald/AskSkaldModal';
+import { SpeakButton } from '../../features/skald/SpeakButton';
 
 const SCROLL_SAVE_INTERVAL_MS = 250;
 
@@ -34,6 +36,7 @@ export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const lesson = useLesson(id);
   const progress = useLessonProgress(id);
+  const [skaldOpen, setSkaldOpen] = useState(false);
 
   // Resume-where-you-left-off: restore the last scroll Y once content
   // is measured, throttle-save while the user reads, capture the final
@@ -200,8 +203,15 @@ export default function LessonScreen() {
           </Animated.Text>
           <CarvedDivider />
           <Animated.View entering={FadeInUp.delay(280).duration(800)}>
+            <SpeakButton text={t(lesson.data.body_key)} />
             <Body>{t(lesson.data.body_key)}</Body>
           </Animated.View>
+
+          <CarvedDivider />
+          <Pressable style={styles.skaldCta} onPress={() => setSkaldOpen(true)}>
+            <Text style={styles.skaldCtaText}>{t('lesson.ask_skald.cta')}</Text>
+            <Text style={styles.skaldCtaRune}> ›</Text>
+          </Pressable>
 
           {quizId && (
             <>
@@ -226,6 +236,13 @@ export default function LessonScreen() {
           )}
         </View>
       </ScrollView>
+
+      <AskSkaldModal
+        visible={skaldOpen}
+        onClose={() => setSkaldOpen(false)}
+        lessonTitle={t(lesson.data.title_key)}
+        lessonBody={t(lesson.data.body_key)}
+      />
     </View>
   );
 }
@@ -293,6 +310,30 @@ const styles = StyleSheet.create({
     borderTopColor: palette.forge,
   },
   ctaCompleted: { borderTopColor: palette.moss },
+  skaldCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: palette.forge,
+    backgroundColor: 'rgba(201, 169, 110, 0.08)',
+    alignSelf: 'center',
+    marginTop: space.sm,
+  },
+  skaldCtaText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.forge,
+    fontSize: fontSize.sm,
+    letterSpacing: tracking.rune,
+  },
+  skaldCtaRune: {
+    fontFamily: fontFamily.display,
+    color: palette.forge,
+    fontSize: fontSize.md,
+  },
   ctaText: {
     fontFamily: fontFamily.displayMid,
     color: palette.parchment,
