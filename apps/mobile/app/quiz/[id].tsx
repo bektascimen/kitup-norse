@@ -353,7 +353,15 @@ function OptionRow({
   });
 
   return (
-    <Animated.View style={showCorrect ? animStyle : undefined}>
+    <Animated.View
+      // Identical entering on every option so they all materialise in
+      // the same frame — without this Reanimated worklet init order
+      // could let one row land a beat after the others, especially
+      // when its label translation hits the i18n cache via realtime
+      // a moment later.
+      entering={FadeIn.duration(220)}
+      style={showCorrect ? animStyle : undefined}
+    >
       <Pressable
         disabled={revealed}
         onPress={() => onPick(option.id)}
@@ -426,6 +434,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     gap: space.md,
+    // Reserve a minimum row height so a missing-then-arriving label
+    // translation can't pop the row from 0 to its natural size and
+    // make it look like the option "appeared late".
+    minHeight: 64,
   },
   optionRune: {
     fontFamily: fontFamily.display,
