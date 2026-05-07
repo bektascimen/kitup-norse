@@ -43,9 +43,10 @@ export default function LessonScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const lastSaveTsRef = useRef(0);
   const lastYRef = useRef(0);
+  const lastMaxYRef = useRef(0);
   const restoredRef = useRef(false);
   const prevHRef = useRef(0);
-  const initialY = useRef(getLessonScroll(id)).current;
+  const initial = useRef(getLessonScroll(id)).current;
 
   useEffect(() => {
     if (progress.data?.completed_at) clearLessonScroll(id);
@@ -59,35 +60,38 @@ export default function LessonScreen() {
     const maxY = Math.max(0, contentSize.height - layoutMeasurement.height);
     const y = Math.min(maxY, Math.max(0, contentOffset.y));
     lastYRef.current = y;
+    lastMaxYRef.current = maxY;
     const now = Date.now();
     if (now - lastSaveTsRef.current < SCROLL_SAVE_INTERVAL_MS) return;
     lastSaveTsRef.current = now;
-    saveLessonScroll(id, y);
+    saveLessonScroll(id, y, maxY);
   }
 
   // Always persist the resting position when scrolling stops, so the
   // last-known offset matches what the user is actually looking at.
   function flushScroll() {
-    saveLessonScroll(id, lastYRef.current);
+    saveLessonScroll(id, lastYRef.current, lastMaxYRef.current);
   }
 
   function onContentSizeChange(_w: number, h: number) {
     if (restoredRef.current) return;
-    if (initialY <= 0) {
+    if (initial === 0) {
       restoredRef.current = true;
       return;
     }
     if (h <= 0) return;
     // Content lays out in passes — first the hero (≈540px), then the
-    // markdown body grows the total height. If we restore on the first
-    // pass, scrollTo clamps against the partial content and lands near
-    // top. Re-fire on every size change instead, and only stop once
-    // either (a) we've landed past initialY, or (b) the height stops
-    // growing (content has settled).
-    scrollRef.current?.scrollTo({ y: initialY, animated: false });
-    if (h >= initialY || h <= prevHRef.current) {
-      restoredRef.current = true;
+    // markdown body grows the total height. Re-fire on every size
+    // change so we always end up against the fully-measured content.
+    if (initial === 'bottom') {
+      scrollRef.current?.scrollToEnd({ animated: false });
+    } else {
+      scrollRef.current?.scrollTo({ y: initial, animated: false });
     }
+    // Only finalize once height has either reached the saved Y (for
+    // numeric restores) or stopped growing (content settled).
+    const settled = (typeof initial === 'number' && h >= initial) || h <= prevHRef.current;
+    if (settled) restoredRef.current = true;
     prevHRef.current = h;
   }
 
