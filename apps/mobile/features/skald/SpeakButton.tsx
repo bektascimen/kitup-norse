@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import * as Speech from 'expo-speech';
 import { useT, useI18nStore } from '../i18n';
+import { useOnboarding, type Path } from '../onboarding/store';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 
 type Props = {
@@ -9,11 +10,19 @@ type Props = {
 };
 
 /**
- * Split a body of text into sentence-sized chunks so we can chain them
- * one utterance at a time. Each utterance feeds Speech.speak — pausing
- * within an utterance is handled by Speech.pause()/resume() rather
- * than by our own bookkeeping.
+ * Path-specific delivery. Each archetype gets its own narrator-feel:
+ * wisdom slows down and drops the pitch slightly (an old skald
+ * weighing words); warrior stays neutral but a touch lower (steady
+ * conviction); traveler nudges up in pitch and pace (mischievous
+ * lift). The deltas are small on purpose — large pitch shifts always
+ * sound like a chipmunk or a vampire, never a person.
  */
+const TONE: Record<Path, { rate: number; pitch: number }> = {
+  wisdom: { rate: 0.95, pitch: 0.96 },
+  warrior: { rate: 1.0, pitch: 0.94 },
+  traveler: { rate: 1.05, pitch: 1.05 },
+};
+
 function splitIntoChunks(text: string): string[] {
   const matches = text.match(/[^.!?]+[.!?]+["']?/g);
   if (!matches) return [text.trim()].filter(Boolean);
@@ -25,17 +34,58 @@ function splitIntoChunks(text: string): string[] {
  * (AVSpeechSynthesizer respects word boundaries on iOS); the next tap
  * resumes exactly where it left off, even mid-sentence. Finishing the
  * body resets so a subsequent tap plays from the top.
+ *
+ * Voice selection prefers Enhanced/Premium quality if the user has
+ * downloaded one (Settings → Accessibility → Spoken Content → Voices),
+ * since the default "compact" voices on iOS sound noticeably robotic.
+ * Path-specific rate/pitch deltas finish the persona.
  */
 export function SpeakButton({ text }: Props) {
   const t = useT();
   const locale = useI18nStore((s) => s.locale);
+  const path = useOnboarding((s) => s.path) ?? 'wisdom';
+
   const [speaking, setSpeaking] = useState(false);
+  const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
+
   const cursorRef = useRef(0);
-  // Distinguishes "we just paused — resume() the same utterance" from
-  // "fresh start at this chunk". Without it, the next tap would replay
-  // the chunk from its first word.
   const pausedRef = useRef(false);
   const chunks = useMemo(() => splitIntoChunks(text), [text]);
+  const tone = TONE[path];
+
+  // Resolve the best-available voice for the current locale once. The
+  // call is async but the lesson screen mounts long enough before the
+  // first tap that we always have a value by the time the user hits
+  // Listen.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const all = await Speech.getAvailableVoicesAsync();
+        const wanted = locale === 'tr' ? 'tr' : 'en';
+        const matches = all.filter((v) => v.language?.toLowerCase().startsWith(wanted));
+        // Sort Enhanced > Default. Inside each tier, prefer voices
+        // whose identifier hints at a "premium"/"siri"/"natural"
+        // pipeline (these IDs vary across iOS versions but the suffix
+        // tends to be reliable).
+        const ranked = matches.sort((a, b) => {
+          const aQ = a.quality === Speech.VoiceQuality.Enhanced ? 0 : 1;
+          const bQ = b.quality === Speech.VoiceQuality.Enhanced ? 0 : 1;
+          if (aQ !== bQ) return aQ - bQ;
+          const aId = a.identifier ?? '';
+          const bId = b.identifier ?? '';
+          const score = (id: string) => (/premium|siri|natural|enhanced/i.test(id) ? 0 : 1);
+          return score(aId) - score(bId);
+        });
+        if (!cancelled) setVoiceId(ranked[0]?.identifier);
+      } catch {
+        /* ignore — fall back to the engine default */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [locale]);
 
   useEffect(() => {
     cursorRef.current = 0;
@@ -57,13 +107,10 @@ export function SpeakButton({ text }: Props) {
     setSpeaking(true);
     Speech.speak(chunks[idx]!, {
       language: locale === 'tr' ? 'tr-TR' : 'en-US',
-      rate: 0.92,
-      pitch: 1.0,
+      voice: voiceId,
+      rate: tone.rate,
+      pitch: tone.pitch,
       onDone: () => {
-        // Skip the chain hop if we were paused mid-utterance — the
-        // engine still fires onDone when the paused utterance finally
-        // completes after a resume(); that's the moment we want to
-        // advance.
         if (pausedRef.current) return;
         speakFrom(cursorRef.current + 1);
       },
@@ -78,9 +125,6 @@ export function SpeakButton({ text }: Props) {
 
   function toggle() {
     if (speaking) {
-      // Pause at the current word; the queued utterance stays alive
-      // so resume() picks up at exactly the spot AVSpeechSynthesizer
-      // was reading.
       Speech.pause();
       pausedRef.current = true;
       setSpeaking(false);
@@ -120,8 +164,6 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   rune: {
-    // System font — Cinzel doesn't ship the geometric play/stop glyphs
-    // and falls back to a tofu box.
     color: palette.forge,
     fontSize: 12,
   },
