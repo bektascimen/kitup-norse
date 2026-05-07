@@ -82,7 +82,7 @@ export function AskSkaldModal({ visible, onClose, lessonTitle, lessonBody }: Pro
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.backdrop}
       >
-        <GradientBackdrop variant="ember" />
+        <GradientBackdrop variant="night" />
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
