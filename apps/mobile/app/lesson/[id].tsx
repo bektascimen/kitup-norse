@@ -201,39 +201,44 @@ export default function LessonScreen() {
           <Animated.Text entering={FadeInUp.delay(120).duration(800)} style={styles.title}>
             {t(lesson.data.title_key)}
           </Animated.Text>
-          <CarvedDivider />
           <Animated.View entering={FadeInUp.delay(280).duration(800)}>
             <SpeakButton text={t(lesson.data.body_key)} />
             <Body>{t(lesson.data.body_key)}</Body>
           </Animated.View>
 
           <CarvedDivider />
-          <Pressable style={styles.skaldCta} onPress={() => setSkaldOpen(true)}>
-            <Text style={styles.skaldCtaText}>{t('lesson.ask_skald.cta')}</Text>
-            <Text style={styles.skaldCtaRune}> ›</Text>
-          </Pressable>
-
-          {quizId && (
-            <>
-              <CarvedDivider />
-              {completed ? (
-                <Pressable
-                  style={[styles.cta, styles.ctaCompleted]}
-                  onPress={() => router.replace('/(tabs)')}
-                >
-                  <Text style={[styles.ctaText, { color: palette.moss }]}>
-                    {t('lesson.cta.back_to_today')}
-                  </Text>
-                  <Text style={[styles.ctaRune, { color: palette.moss }]}> ›</Text>
-                </Pressable>
-              ) : (
-                <Pressable style={styles.cta} onPress={() => router.push(`/quiz/${quizId}`)}>
-                  <Text style={styles.ctaText}>{t('lesson.cta.continue_quiz')}</Text>
-                  <Text style={styles.ctaRune}> ›</Text>
-                </Pressable>
-              )}
-            </>
-          )}
+          {completed ? (
+            <View style={styles.actionRow}>
+              <Pressable
+                style={[styles.actionBtn, styles.actionSecondary]}
+                onPress={() => setSkaldOpen(true)}
+              >
+                <Text style={styles.actionSecondaryText}>{t('lesson.ask_skald.cta')}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionBtn, styles.actionDone]}
+                onPress={() => router.replace('/(tabs)')}
+              >
+                <Text style={styles.actionDoneText}>{t('lesson.cta.back_to_today')}</Text>
+              </Pressable>
+            </View>
+          ) : quizId ? (
+            <View style={styles.actionRow}>
+              <Pressable
+                style={[styles.actionBtn, styles.actionSecondary]}
+                onPress={() => setSkaldOpen(true)}
+              >
+                <Text style={styles.actionSecondaryText}>{t('lesson.ask_skald.cta')}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionBtn, styles.actionPrimary]}
+                onPress={() => router.push(`/quiz/${quizId}`)}
+              >
+                <Text style={styles.actionPrimaryText}>{t('lesson.cta.continue_quiz')}</Text>
+                <Text style={styles.actionPrimaryRune}> ›</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -310,29 +315,57 @@ const styles = StyleSheet.create({
     borderTopColor: palette.forge,
   },
   ctaCompleted: { borderTopColor: palette.moss },
-  skaldCta: {
+  actionRow: {
+    flexDirection: 'row',
+    gap: space.sm,
+    marginTop: space.md,
+  },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.full,
+    paddingVertical: space.md + 2,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: palette.forge,
-    backgroundColor: 'rgba(201, 169, 110, 0.08)',
-    alignSelf: 'center',
-    marginTop: space.sm,
   },
-  skaldCtaText: {
+  actionSecondary: {
+    borderColor: palette.forge,
+    backgroundColor: 'rgba(201, 169, 110, 0.06)',
+  },
+  actionSecondaryText: {
     fontFamily: fontFamily.displayMid,
     color: palette.forge,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+    textAlign: 'center',
+  },
+  actionPrimary: {
+    borderColor: palette.forge,
+    backgroundColor: palette.forge,
+  },
+  actionPrimaryText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.bg,
+    fontSize: fontSize.xs,
     letterSpacing: tracking.rune,
   },
-  skaldCtaRune: {
+  actionPrimaryRune: {
     fontFamily: fontFamily.display,
-    color: palette.forge,
+    color: palette.bg,
     fontSize: fontSize.md,
+  },
+  actionDone: {
+    borderColor: palette.moss,
+    backgroundColor: 'rgba(90, 140, 92, 0.08)',
+  },
+  actionDoneText: {
+    fontFamily: fontFamily.displayMid,
+    color: palette.moss,
+    fontSize: fontSize.xs,
+    letterSpacing: tracking.rune,
+    textAlign: 'center',
   },
   ctaText: {
     fontFamily: fontFamily.displayMid,

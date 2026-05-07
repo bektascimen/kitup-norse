@@ -46,7 +46,9 @@ export function SpeakButton({ text }: Props) {
 
   return (
     <Pressable style={styles.btn} onPress={toggle} hitSlop={12}>
-      <Text style={styles.rune}>{speaking ? '◼' : '▶'}</Text>
+      <Text style={styles.rune} allowFontScaling={false}>
+        {speaking ? '■' : '▶'}
+      </Text>
       <Text style={styles.label}>{speaking ? t('lesson.speak.stop') : t('lesson.speak.play')}</Text>
     </Pressable>
   );
@@ -67,7 +69,9 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   rune: {
-    fontFamily: fontFamily.displayMid,
+    // System font — Cinzel doesn't ship the geometric play/stop glyphs
+    // and falls back to a tofu box. Skip fontFamily so iOS's default
+    // serves the symbol cleanly.
     color: palette.forge,
     fontSize: 12,
   },
