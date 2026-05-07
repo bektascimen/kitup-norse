@@ -23,18 +23,7 @@ export default function ProfileAbout() {
         <Text style={styles.sectionLabel}>{t('profile.about.section.version')}</Text>
         <Text style={styles.value}>{version}</Text>
 
-        <Text style={styles.sectionLabel}>{t('profile.about.section.content')}</Text>
-        <Text style={styles.value}>Gemini 2.5 Flash Lite · Supabase Edge Functions</Text>
-
-        <Text style={styles.sectionLabel}>{t('profile.about.section.imagery')}</Text>
-        <Text style={styles.value}>Wikimedia Commons — public domain Norse art</Text>
-
-        <Text style={styles.sectionLabel}>{t('profile.about.section.built_with')}</Text>
-        <Text style={styles.value}>Expo SDK 52 · React Native · Supabase · TypeScript</Text>
-
-        <CarvedDivider />
-
-        <Text style={styles.poem}>
+        <Text style={[styles.poem, { marginTop: space.xxl }]}>
           {
             '“Cattle die, kindred die,\nthou thyself shalt die;\none thing I know that never dies:\nthe fame of a dead man’s deeds.”'
           }
