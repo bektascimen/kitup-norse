@@ -16,6 +16,7 @@ import { syncTranslations, subscribeTranslations, useI18nStore } from '../featur
 import { ensurePermissions } from '../features/notifications/schedule';
 import { startOutboxListener } from '../features/quiz/outbox';
 import { subscribeContent } from '../features/realtime/subscribe';
+import { LoadingScreen } from '../components/atmospherics/LoadingScreen';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,6 +25,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
+      // Hand the screen off to JS as soon as fonts are in. The
+      // i18n sync may still be in flight; the JS-side LoadingScreen
+      // takes over until both are ready, keeping the brand presence
+      // alive instead of flashing through a null frame.
       SplashScreen.hideAsync();
       bootstrapAuth();
     }
@@ -61,10 +66,12 @@ export default function RootLayout() {
 
   const i18nReady = useI18nStore((s) => s.ready);
 
-  // Hold the splash until both fonts AND the first translations sync land.
-  // Otherwise screens that call t('some.new.key') flash the literal key
-  // for ~100ms while the cache is being filled.
-  if (!fontsLoaded || !i18nReady) return null;
+  // While fonts arrive, the native splash is still up. Once the JS
+  // bridge is alive but i18n is still warming, render the on-brand
+  // LoadingScreen so the boot sequence reads as a single continuous
+  // beat rather than splash → black → app.
+  if (!fontsLoaded) return null;
+  if (!i18nReady) return <LoadingScreen />;
 
   return (
     <PersistQueryClientProvider
