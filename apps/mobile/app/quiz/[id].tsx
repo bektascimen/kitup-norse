@@ -15,6 +15,7 @@ import { useQuiz, useSubmitProgress } from '../../features/quiz/quizQuery';
 import { computeQuizResult } from '../../features/quiz/score';
 import { enqueueWrong } from '../../features/sr/queue';
 import { useLessonProgress } from '../../features/lessons/lessonProgressQuery';
+import { clearQuizSession, getQuizSession, saveQuizSession } from '../../features/resume/storage';
 import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
@@ -28,11 +29,23 @@ export default function QuizScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const quiz = useQuiz(id);
   const submit = useSubmitProgress();
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [revealed, setRevealed] = useState(false);
+  // Hydrate any in-flight session for this quiz once on mount so the
+  // user lands back on the question they were on with their answers
+  // intact. The lazy initializer reads MMKV synchronously — no flash
+  // of "step 0" before the persisted state arrives.
+  const persisted = useRef(getQuizSession(id)).current;
+  const [step, setStep] = useState(persisted?.step ?? 0);
+  const [answers, setAnswers] = useState<Record<string, string>>(persisted?.answers ?? {});
+  const [revealed, setRevealed] = useState(persisted?.revealed ?? false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Mirror the live state into MMKV. Skipped while submitting so a mid-
+  // submit unmount doesn't re-save a state we're about to clear anyway.
+  useEffect(() => {
+    if (submitting) return;
+    saveQuizSession(id, { step, answers, revealed });
+  }, [id, step, answers, revealed, submitting]);
 
   // Block re-entry: if this lesson is already completed, jump to the
   // day-complete screen with the saved score instead of letting the user
@@ -157,6 +170,7 @@ export default function QuizScreen() {
     } catch (e) {
       console.warn('[quiz] enqueue wrong failed', e);
     }
+    clearQuizSession(id);
     router.replace({
       pathname: '/lesson/complete',
       params: { score: String(result.score) },

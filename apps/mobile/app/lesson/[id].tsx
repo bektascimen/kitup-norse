@@ -1,10 +1,25 @@
-import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import { useLesson } from '../../features/lessons/lessonQuery';
 import { useLessonProgress } from '../../features/lessons/lessonProgressQuery';
+import {
+  clearLessonScroll,
+  getLessonScroll,
+  saveLessonScroll,
+} from '../../features/resume/storage';
 import { useT } from '../../features/i18n';
 import { palette, fontFamily, fontSize, space, tracking, radius } from '../../theme';
 import Body from '../../components/Markdown';
@@ -12,11 +27,48 @@ import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop
 import { CarvedDivider } from '../../components/atmospherics/CarvedDivider';
 import { HeaderBack } from '../../components/atmospherics/HeaderBack';
 
+const SCROLL_SAVE_INTERVAL_MS = 250;
+
 export default function LessonScreen() {
   const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const lesson = useLesson(id);
   const progress = useLessonProgress(id);
+
+  // Resume-where-you-left-off: restore the last scroll Y once content
+  // is measured, throttle-save while the user reads, drop the saved
+  // offset once the lesson is marked complete (re-entry should always
+  // start from the top in that case).
+  const scrollRef = useRef<ScrollView>(null);
+  const lastSaveTsRef = useRef(0);
+  const restoredRef = useRef(false);
+  const initialY = useRef(getLessonScroll(id)).current;
+
+  useEffect(() => {
+    if (progress.data?.completed_at) clearLessonScroll(id);
+  }, [id, progress.data?.completed_at]);
+
+  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = e.nativeEvent.contentOffset.y;
+    const now = Date.now();
+    if (now - lastSaveTsRef.current < SCROLL_SAVE_INTERVAL_MS) return;
+    lastSaveTsRef.current = now;
+    saveLessonScroll(id, y);
+  }
+
+  function onContentSizeChange(_w: number, h: number) {
+    if (restoredRef.current) return;
+    if (initialY <= 0) {
+      restoredRef.current = true;
+      return;
+    }
+    // Only restore once content is tall enough to actually hold the
+    // saved offset; otherwise the call clamps to bottom and the user
+    // lands further down than they ever scrolled.
+    if (h <= initialY + 80) return;
+    scrollRef.current?.scrollTo({ y: initialY, animated: false });
+    restoredRef.current = true;
+  }
 
   const headerOptions = {
     title: lesson.data
@@ -54,7 +106,14 @@ export default function LessonScreen() {
     <View style={styles.root}>
       <Stack.Screen options={headerOptions} />
       <GradientBackdrop variant="night" />
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: space.xxxl }}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: space.xxxl }}
+        onScroll={onScroll}
+        scrollEventThrottle={64}
+        onContentSizeChange={onContentSizeChange}
+      >
         {heroUri ? (
           <View style={styles.heroWrap}>
             <Image
