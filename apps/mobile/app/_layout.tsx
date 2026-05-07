@@ -22,7 +22,10 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts(fontMap);
 
   useEffect(() => {
-    if (fontsLoaded) bootstrapAuth();
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+      bootstrapAuth();
+    }
   }, [fontsLoaded]);
 
   // Skip permission prompt during demo screenshot pass — re-enable after.
@@ -56,13 +59,6 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   const i18nReady = useI18nStore((s) => s.ready);
-
-  // Hide the native splash exactly once everything's hydrated. Keeps
-  // the boot sequence as a single screen instead of splash → JS
-  // loading → app.
-  useEffect(() => {
-    if (fontsLoaded && i18nReady) SplashScreen.hideAsync();
-  }, [fontsLoaded, i18nReady]);
 
   if (!fontsLoaded || !i18nReady) return null;
 
