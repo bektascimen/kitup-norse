@@ -42,12 +42,16 @@ export function subscribeTranslations(locale: Locale): () => void {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'translations', filter: `locale=eq.${locale}` },
       (payload) => {
-        const row = (payload.new ?? payload.old) as {
-          key: string;
-          value: string;
-          updated_at: string;
-        };
-        if (row && payload.new) {
+        if (payload.eventType === 'DELETE') {
+          const row = payload.old as { key?: string };
+          if (row?.key) {
+            i18nCache.remove(locale, row.key);
+            useI18nStore.getState().triggerRender();
+          }
+          return;
+        }
+        const row = payload.new as { key: string; value: string; updated_at: string };
+        if (row?.key) {
           i18nCache.upsert(locale, [row]);
           useI18nStore.getState().triggerRender();
         }

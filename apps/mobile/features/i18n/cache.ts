@@ -20,7 +20,9 @@ export class I18nCache {
   private read(locale: Locale): LocaleData {
     if (this.memo[locale]) return this.memo[locale]!;
     const raw = this.storage.getString(`${KEY_PREFIX}${locale}`);
-    const data: LocaleData = raw ? JSON.parse(raw) : { entries: {}, lastUpdated: '1970-01-01T00:00:00Z' };
+    const data: LocaleData = raw
+      ? JSON.parse(raw)
+      : { entries: {}, lastUpdated: '1970-01-01T00:00:00Z' };
     this.memo[locale] = data;
     return data;
   }
@@ -38,6 +40,18 @@ export class I18nCache {
       if (r.updated_at > lastUpdated) lastUpdated = r.updated_at;
     }
     this.write(locale, { entries: cur.entries, lastUpdated });
+  }
+
+  /**
+   * Drop a key from the cache when the upstream row is deleted. Without
+   * this, realtime DELETE events were silently ignored and stale values
+   * lingered until reinstall.
+   */
+  remove(locale: Locale, key: string): void {
+    const cur = this.read(locale);
+    if (!(key in cur.entries)) return;
+    delete cur.entries[key];
+    this.write(locale, { entries: cur.entries, lastUpdated: cur.lastUpdated });
   }
 
   get(key: string, locale: Locale): string {
