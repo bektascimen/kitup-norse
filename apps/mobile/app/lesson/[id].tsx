@@ -44,6 +44,7 @@ export default function LessonScreen() {
   const lastSaveTsRef = useRef(0);
   const lastYRef = useRef(0);
   const restoredRef = useRef(false);
+  const prevHRef = useRef(0);
   const initialY = useRef(getLessonScroll(id)).current;
 
   useEffect(() => {
@@ -51,9 +52,12 @@ export default function LessonScreen() {
   }, [id, progress.data?.completed_at]);
 
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    // iOS bounce can report Y past contentSize during overscroll;
-    // clamp to ≥0 so we never persist negative or junk offsets.
-    const y = Math.max(0, e.nativeEvent.contentOffset.y);
+    // iOS bounce reports Y past the real maximum during overscroll —
+    // clamp against contentSize/layout so a kill at the bottom-edge
+    // bounce doesn't persist e.g. Y=3000 on a 1500-tall lesson.
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const maxY = Math.max(0, contentSize.height - layoutMeasurement.height);
+    const y = Math.min(maxY, Math.max(0, contentOffset.y));
     lastYRef.current = y;
     const now = Date.now();
     if (now - lastSaveTsRef.current < SCROLL_SAVE_INTERVAL_MS) return;
@@ -73,12 +77,18 @@ export default function LessonScreen() {
       restoredRef.current = true;
       return;
     }
-    // ScrollView clamps internally — passing a Y past contentSize
-    // simply lands the viewport at the maximum scroll. So we don't
-    // need to gate on h here; just fire once content has measured.
     if (h <= 0) return;
+    // Content lays out in passes — first the hero (≈540px), then the
+    // markdown body grows the total height. If we restore on the first
+    // pass, scrollTo clamps against the partial content and lands near
+    // top. Re-fire on every size change instead, and only stop once
+    // either (a) we've landed past initialY, or (b) the height stops
+    // growing (content has settled).
     scrollRef.current?.scrollTo({ y: initialY, animated: false });
-    restoredRef.current = true;
+    if (h >= initialY || h <= prevHRef.current) {
+      restoredRef.current = true;
+    }
+    prevHRef.current = h;
   }
 
   const headerOptions = {
