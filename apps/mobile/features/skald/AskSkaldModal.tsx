@@ -131,7 +131,6 @@ export function AskSkaldModal({ visible, onClose, lessonTitle, lessonBody }: Pro
             <Animated.View entering={FadeInUp.duration(500)} style={styles.section}>
               <Text style={styles.questionEcho}>"{question}"</Text>
               <Text style={styles.answer}>{answer}</Text>
-              <CarvedDivider />
               <Pressable style={styles.cta} onPress={reset}>
                 <Text style={styles.ctaText}>{t('lesson.ask_skald.again')}</Text>
                 <Text style={styles.ctaRune}> ›</Text>
