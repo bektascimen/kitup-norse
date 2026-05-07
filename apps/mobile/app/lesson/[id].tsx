@@ -52,6 +52,27 @@ export default function LessonScreen() {
     if (progress.data?.completed_at) clearLessonScroll(id);
   }, [id, progress.data?.completed_at]);
 
+  // Backstop: once the lesson data is in, fire the restore on the next
+  // few frames as a fallback for cases where onContentSizeChange's
+  // "settled" detection bails before the full body has measured.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    if (initial === 0) return;
+    if (!lesson.data) return;
+    const targets = initial === 'bottom' ? [0, 200, 600] : [200, 600];
+    const handles = targets.map((delay) =>
+      setTimeout(() => {
+        if (initial === 'bottom') {
+          // Pass a Y past any plausible content; RN clamps to max scroll.
+          scrollRef.current?.scrollTo({ y: 1_000_000, animated: false });
+        } else {
+          scrollRef.current?.scrollTo({ y: initial, animated: false });
+        }
+      }, delay),
+    );
+    return () => handles.forEach(clearTimeout);
+  }, [initial, lesson.data?.id]);
+
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     // iOS bounce reports Y past the real maximum during overscroll —
     // clamp against contentSize/layout so a kill at the bottom-edge
