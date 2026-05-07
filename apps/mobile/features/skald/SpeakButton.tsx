@@ -9,37 +9,37 @@ type Props = {
 };
 
 /**
- * Split a body of text into sentence-sized chunks. expo-speech doesn't
- * expose pause/resume — Speech.stop() throws away all internal state —
- * so we drive playback ourselves by walking these chunks one at a time.
- * Stop on chunk N means we keep N as our cursor; the next play picks
- * up at chunk N rather than starting from the top.
+ * Split a body of text into sentence-sized chunks so we can chain them
+ * one utterance at a time. Each utterance feeds Speech.speak — pausing
+ * within an utterance is handled by Speech.pause()/resume() rather
+ * than by our own bookkeeping.
  */
 function splitIntoChunks(text: string): string[] {
-  // Sentence boundary: ., !, ? optionally followed by closing
-  // punctuation, then whitespace. Falls back to one chunk if the text
-  // has no sentence enders.
   const matches = text.match(/[^.!?]+[.!?]+["']?/g);
   if (!matches) return [text.trim()].filter(Boolean);
   return matches.map((s) => s.trim()).filter(Boolean);
 }
 
 /**
- * Reads the lesson body aloud. Stop preserves the cursor so the next
- * tap resumes at the same sentence; finishing the body resets so a
- * subsequent tap starts again from the beginning.
+ * Reads the lesson body aloud. Stop pauses at the current word
+ * (AVSpeechSynthesizer respects word boundaries on iOS); the next tap
+ * resumes exactly where it left off, even mid-sentence. Finishing the
+ * body resets so a subsequent tap plays from the top.
  */
 export function SpeakButton({ text }: Props) {
   const t = useT();
   const locale = useI18nStore((s) => s.locale);
   const [speaking, setSpeaking] = useState(false);
   const cursorRef = useRef(0);
+  // Distinguishes "we just paused — resume() the same utterance" from
+  // "fresh start at this chunk". Without it, the next tap would replay
+  // the chunk from its first word.
+  const pausedRef = useRef(false);
   const chunks = useMemo(() => splitIntoChunks(text), [text]);
 
-  // Reset cursor + stop any in-flight speech when the lesson changes
-  // (different body) or the component unmounts.
   useEffect(() => {
     cursorRef.current = 0;
+    pausedRef.current = false;
     return () => {
       Speech.stop();
     };
@@ -47,20 +47,24 @@ export function SpeakButton({ text }: Props) {
 
   function speakFrom(idx: number) {
     if (idx >= chunks.length) {
-      // Finished the body — next play starts from the top.
       cursorRef.current = 0;
+      pausedRef.current = false;
       setSpeaking(false);
       return;
     }
     cursorRef.current = idx;
+    pausedRef.current = false;
     setSpeaking(true);
     Speech.speak(chunks[idx]!, {
       language: locale === 'tr' ? 'tr-TR' : 'en-US',
       rate: 0.92,
       pitch: 1.0,
       onDone: () => {
-        // Only advance if we weren't manually stopped — onStopped
-        // fires for that path and shouldn't bump the cursor.
+        // Skip the chain hop if we were paused mid-utterance — the
+        // engine still fires onDone when the paused utterance finally
+        // completes after a resume(); that's the moment we want to
+        // advance.
+        if (pausedRef.current) return;
         speakFrom(cursorRef.current + 1);
       },
       onStopped: () => {
@@ -74,8 +78,18 @@ export function SpeakButton({ text }: Props) {
 
   function toggle() {
     if (speaking) {
-      Speech.stop();
+      // Pause at the current word; the queued utterance stays alive
+      // so resume() picks up at exactly the spot AVSpeechSynthesizer
+      // was reading.
+      Speech.pause();
+      pausedRef.current = true;
       setSpeaking(false);
+      return;
+    }
+    if (pausedRef.current) {
+      Speech.resume();
+      pausedRef.current = false;
+      setSpeaking(true);
       return;
     }
     speakFrom(cursorRef.current);
