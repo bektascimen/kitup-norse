@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import * as Speech from 'expo-speech';
+import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { useT, useI18nStore } from '../i18n';
 import { useOnboarding, type Path } from '../onboarding/store';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
+import { getLessonAudioUrl } from './audioCache';
 
 type Props = {
   text: string;
+  lessonId?: string;
 };
 
-/**
- * Path-specific delivery. Each archetype gets its own narrator-feel:
- * wisdom slows down and drops the pitch slightly (an old skald
- * weighing words); warrior stays neutral but a touch lower (steady
- * conviction); traveler nudges up in pitch and pace (mischievous
- * lift). The deltas are small on purpose — large pitch shifts always
- * sound like a chipmunk or a vampire, never a person.
- */
 const TONE: Record<Path, { rate: number; pitch: number }> = {
   wisdom: { rate: 0.95, pitch: 0.96 },
   warrior: { rate: 1.0, pitch: 0.94 },
@@ -30,33 +25,37 @@ function splitIntoChunks(text: string): string[] {
 }
 
 /**
- * Reads the lesson body aloud. Stop pauses at the current word
- * (AVSpeechSynthesizer respects word boundaries on iOS); the next tap
- * resumes exactly where it left off, even mid-sentence. Finishing the
- * body resets so a subsequent tap plays from the top.
+ * Reads the lesson body aloud. Two playback paths share the same UI:
  *
- * Voice selection prefers Enhanced/Premium quality if the user has
- * downloaded one (Settings → Accessibility → Spoken Content → Voices),
- * since the default "compact" voices on iOS sound noticeably robotic.
- * Path-specific rate/pitch deltas finish the persona.
+ * - **Premium MP3** (when getLessonAudioUrl returns a URL): a pre-
+ *   generated narration hosted in Supabase Storage, played through
+ *   expo-av so pause/resume hits exact byte offsets.
+ * - **Device TTS fallback**: AVSpeechSynthesizer driven sentence-by-
+ *   sentence, with Speech.pause()/resume() honoring word boundaries.
+ *
+ * The button's pause/resume contract is identical either way — Stop
+ * keeps the position, Listen continues from there, finishing resets.
  */
-export function SpeakButton({ text }: Props) {
+export function SpeakButton({ text, lessonId }: Props) {
   const t = useT();
   const locale = useI18nStore((s) => s.locale);
   const path = useOnboarding((s) => s.path) ?? 'wisdom';
+  const audioUrl = getLessonAudioUrl(lessonId, locale);
 
   const [speaking, setSpeaking] = useState(false);
   const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
 
+  // TTS chunk-walking state (only used when audioUrl is undefined).
   const cursorRef = useRef(0);
   const pausedRef = useRef(false);
   const chunks = useMemo(() => splitIntoChunks(text), [text]);
   const tone = TONE[path];
 
-  // Resolve the best-available voice for the current locale once. The
-  // call is async but the lesson screen mounts long enough before the
-  // first tap that we always have a value by the time the user hits
-  // Listen.
+  // expo-av Sound for the premium MP3 path. Created lazily on first
+  // play, kept across pause/resume, unloaded on unmount.
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const audioFinishedRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -64,10 +63,6 @@ export function SpeakButton({ text }: Props) {
         const all = await Speech.getAvailableVoicesAsync();
         const wanted = locale === 'tr' ? 'tr' : 'en';
         const matches = all.filter((v) => v.language?.toLowerCase().startsWith(wanted));
-        // Sort Enhanced > Default. Inside each tier, prefer voices
-        // whose identifier hints at a "premium"/"siri"/"natural"
-        // pipeline (these IDs vary across iOS versions but the suffix
-        // tends to be reliable).
         const ranked = matches.sort((a, b) => {
           const aQ = a.quality === Speech.VoiceQuality.Enhanced ? 0 : 1;
           const bQ = b.quality === Speech.VoiceQuality.Enhanced ? 0 : 1;
@@ -79,7 +74,7 @@ export function SpeakButton({ text }: Props) {
         });
         if (!cancelled) setVoiceId(ranked[0]?.identifier);
       } catch {
-        /* ignore — fall back to the engine default */
+        /* ignore */
       }
     })();
     return () => {
@@ -87,15 +82,53 @@ export function SpeakButton({ text }: Props) {
     };
   }, [locale]);
 
+  // Reset state when the lesson body changes.
   useEffect(() => {
     cursorRef.current = 0;
     pausedRef.current = false;
+    audioFinishedRef.current = false;
     return () => {
       Speech.stop();
+      soundRef.current?.unloadAsync();
+      soundRef.current = null;
     };
-  }, [text]);
+  }, [text, audioUrl]);
 
-  function speakFrom(idx: number) {
+  function onAudioStatus(status: AVPlaybackStatus) {
+    if (!status.isLoaded) return;
+    if (status.didJustFinish) {
+      audioFinishedRef.current = true;
+      setSpeaking(false);
+    }
+  }
+
+  async function startOrResumeAudio() {
+    if (!audioUrl) return;
+    if (audioFinishedRef.current) {
+      // Replay from the top.
+      await soundRef.current?.unloadAsync();
+      soundRef.current = null;
+      audioFinishedRef.current = false;
+    }
+    if (!soundRef.current) {
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true },
+        onAudioStatus,
+      );
+      soundRef.current = sound;
+    } else {
+      await soundRef.current.playAsync();
+    }
+    setSpeaking(true);
+  }
+
+  async function pauseAudio() {
+    await soundRef.current?.pauseAsync();
+    setSpeaking(false);
+  }
+
+  function speakFromTts(idx: number) {
     if (idx >= chunks.length) {
       cursorRef.current = 0;
       pausedRef.current = false;
@@ -112,18 +145,22 @@ export function SpeakButton({ text }: Props) {
       pitch: tone.pitch,
       onDone: () => {
         if (pausedRef.current) return;
-        speakFrom(cursorRef.current + 1);
+        speakFromTts(cursorRef.current + 1);
       },
-      onStopped: () => {
-        setSpeaking(false);
-      },
-      onError: () => {
-        setSpeaking(false);
-      },
+      onStopped: () => setSpeaking(false),
+      onError: () => setSpeaking(false),
     });
   }
 
-  function toggle() {
+  async function toggle() {
+    if (audioUrl) {
+      if (speaking) {
+        await pauseAudio();
+        return;
+      }
+      await startOrResumeAudio();
+      return;
+    }
     if (speaking) {
       Speech.pause();
       pausedRef.current = true;
@@ -136,7 +173,7 @@ export function SpeakButton({ text }: Props) {
       setSpeaking(true);
       return;
     }
-    speakFrom(cursorRef.current);
+    speakFromTts(cursorRef.current);
   }
 
   return (

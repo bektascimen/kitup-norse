@@ -202,7 +202,7 @@ export default function LessonScreen() {
             {t(lesson.data.title_key)}
           </Animated.Text>
           <Animated.View entering={FadeInUp.delay(280).duration(800)}>
-            <SpeakButton text={t(lesson.data.body_key)} />
+            <SpeakButton text={t(lesson.data.body_key)} lessonId={lesson.data.id} />
             <Body>{t(lesson.data.body_key)}</Body>
           </Animated.View>
 
