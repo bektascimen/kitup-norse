@@ -38,6 +38,21 @@ export function useLearnerStats() {
     queryFn: async (): Promise<LearnerStats> => {
       const nowIso = new Date().toISOString();
 
+      // Resolve question IDs that live under this course so we can
+      // filter review_queue by question_id directly. PostgREST's nested
+      // embed filter does NOT propagate through to count(head:true) —
+      // it only filters the embedded payload, leaving the outer count
+      // unscoped. Two-step resolution is the correct shape here.
+      const questionIdsRes =
+        lessonIds.length === 0
+          ? { data: [] as { id: string }[], error: null }
+          : await supabase
+              .from('quiz_questions')
+              .select('id, quizzes!inner(lesson_id)')
+              .in('quizzes.lesson_id', lessonIds);
+      if (questionIdsRes.error) throw questionIdsRes.error;
+      const questionIds = (questionIdsRes.data ?? []).map((r) => r.id);
+
       const [progressRes, streakRes, dueRes] = await Promise.all([
         lessonIds.length === 0
           ? Promise.resolve({ data: [], error: null })
@@ -52,19 +67,13 @@ export function useLearnerStats() {
           .select('current_streak, longest_streak')
           .eq('user_id', userId!)
           .maybeSingle(),
-        // Reviews due now, restricted to questions whose quiz belongs
-        // to a lesson in the active course. The !inner forces the join
-        // to filter parent rows, and the count is exact for the chip.
-        lessonIds.length === 0
+        questionIds.length === 0
           ? Promise.resolve({ count: 0, error: null })
           : supabase
               .from('review_queue')
-              .select('id, quiz_questions!inner(quizzes!inner(lesson_id))', {
-                count: 'exact',
-                head: true,
-              })
+              .select('id', { count: 'exact', head: true })
               .eq('user_id', userId!)
-              .in('quiz_questions.quizzes.lesson_id', lessonIds)
+              .in('question_id', questionIds)
               .lte('due_at', nowIso),
       ]);
 
