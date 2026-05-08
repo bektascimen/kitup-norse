@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -18,6 +19,7 @@ import { useLesson } from '../../features/lessons/lessonQuery';
 import { palette, fontFamily, fontSize, space, tracking } from '../../theme';
 import { GradientBackdrop } from '../../components/atmospherics/GradientBackdrop';
 import { ShareCard } from '../../features/share/ShareCard';
+import { SigilUnlockModal } from '../../features/badges';
 
 export default function Complete() {
   const t = useT();
@@ -31,6 +33,25 @@ export default function Complete() {
 
   const pulse = useSharedValue(0);
   const cardRef = useRef<View>(null);
+
+  // Force a fresh learner_stats fetch before evaluating sigil unlocks.
+  // The quiz mutation already invalidates the query, but on a cellular
+  // device the in-flight refetch can lag behind this screen's mount —
+  // useBadges then derives `newlyEarned` against stale cache and the
+  // SigilUnlockModal silently no-ops. Gating the modal on `statsReady`
+  // guarantees the very first render after refetch is the one that
+  // computes the unlock set.
+  const qc = useQueryClient();
+  const [statsReady, setStatsReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    qc.refetchQueries({ queryKey: ['learner_stats'] }).finally(() => {
+      if (!cancelled) setStatsReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [qc]);
 
   useEffect(() => {
     pulse.value = withRepeat(
@@ -79,7 +100,7 @@ export default function Complete() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <GradientBackdrop variant="ember" />
+      <GradientBackdrop variant="night" />
 
       <View style={styles.top}>
         <Animated.Text entering={FadeIn.duration(900)} style={styles.eyebrow}>
@@ -128,6 +149,14 @@ export default function Complete() {
           tagline={t('day.complete.share.tagline')}
         />
       </View>
+
+      {/* Sigil reveal — auto-shows for any badge unlocked by THIS
+          completion. We only mount it once the explicit stats refetch
+          has settled (`statsReady`); without that gate, useBadges can
+          derive `newlyEarned` from stale cached stats and the modal
+          silently skips the unlock. Modal pops one badge at a time;
+          when newlyEarned is empty, the component renders nothing. */}
+      {statsReady && <SigilUnlockModal />}
     </View>
   );
 }

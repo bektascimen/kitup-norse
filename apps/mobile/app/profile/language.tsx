@@ -22,14 +22,24 @@ export default function ProfileLanguage() {
   const current = useI18nStore((s) => s.locale);
   const setLocale = useI18nStore((s) => s.setLocale);
   const [selected, setSelected] = useState<Locale>(current);
+  const [saving, setSaving] = useState(false);
 
   async function save() {
     if (selected === current) {
       router.back();
       return;
     }
-    setLocale(selected);
-    await syncTranslations(selected);
+    setSaving(true);
+    try {
+      // Hydrate the target locale BEFORE flipping. Boot only syncs the
+      // initial locale, so EN's cache is empty until the first switch —
+      // if we set the locale first, `t(key)` lookups during the
+      // re-render fall back to raw keys for a beat before sync lands.
+      await syncTranslations(selected);
+      setLocale(selected);
+    } finally {
+      setSaving(false);
+    }
     router.back();
   }
 
@@ -68,8 +78,14 @@ export default function ProfileLanguage() {
         </View>
       </View>
       <View style={styles.ctaWrap}>
-        <Pressable style={styles.cta} onPress={save}>
-          <Text style={styles.ctaText}>{t('common.cta.save')}</Text>
+        <Pressable
+          style={[styles.cta, saving && { opacity: 0.5 }]}
+          onPress={save}
+          disabled={saving}
+        >
+          <Text style={styles.ctaText}>
+            {saving ? t('common.cta.save') + '…' : t('common.cta.save')}
+          </Text>
           <Text style={styles.ctaRune}> ›</Text>
         </Pressable>
       </View>

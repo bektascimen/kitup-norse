@@ -23,5 +23,10 @@
     "*.{ts,tsx,js,jsx,json,md}": [
       "prettier --write"
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "eslint": "^8.57.0"
+    }
   }
 }

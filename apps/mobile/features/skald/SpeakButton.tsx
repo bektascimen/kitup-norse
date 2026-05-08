@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import * as Speech from 'expo-speech';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
+import { useIsFocused } from '@react-navigation/native';
 import { useT, useI18nStore } from '../i18n';
 import { useOnboarding, type Path } from '../onboarding/store';
 import { palette, fontFamily, fontSize, space, radius, tracking } from '../../theme';
@@ -10,6 +11,13 @@ import { getLessonAudioUrl } from './audioCache';
 type Props = {
   text: string;
   lessonId?: string;
+  /**
+   * Force-pause from the parent (e.g. when a modal opens over the
+   * lesson). Navigation-driven pauses are handled internally via
+   * `useIsFocused`. When this flips back to false, playback auto-
+   * resumes iff it was the prop/blur that paused it — not the user.
+   */
+  externalPause?: boolean;
 };
 
 const TONE: Record<Path, { rate: number; pitch: number }> = {
@@ -36,7 +44,7 @@ function splitIntoChunks(text: string): string[] {
  * The button's pause/resume contract is identical either way — Stop
  * keeps the position, Listen continues from there, finishing resets.
  */
-export function SpeakButton({ text, lessonId }: Props) {
+export function SpeakButton({ text, lessonId, externalPause }: Props) {
   const t = useT();
   const locale = useI18nStore((s) => s.locale);
   const path = useOnboarding((s) => s.path) ?? 'wisdom';
@@ -55,6 +63,13 @@ export function SpeakButton({ text, lessonId }: Props) {
   // play, kept across pause/resume, unloaded on unmount.
   const soundRef = useRef<Audio.Sound | null>(null);
   const audioFinishedRef = useRef(false);
+
+  // True when the most recent pause was caused by losing focus or by
+  // the externalPause prop — *not* by the user pressing Stop. Drives
+  // auto-resume on return so manual pauses stay paused.
+  const isFocused = useIsFocused();
+  const shouldAutoPause = !isFocused || !!externalPause;
+  const wasPlayingBeforeAutoPauseRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,12 +102,65 @@ export function SpeakButton({ text, lessonId }: Props) {
     cursorRef.current = 0;
     pausedRef.current = false;
     audioFinishedRef.current = false;
+    wasPlayingBeforeAutoPauseRef.current = false;
     return () => {
+      // Block the onDone callback from queuing chunk N+1 after we're
+      // gone. iOS can fire `didFinish` (→ onDone) instead of
+      // `didCancel` (→ onStopped) when stopping a paused synthesizer,
+      // and onDone calls speakFromTts(N+1) → Speech.speak through the
+      // global synth — heard as a "skipped sentence" after the screen
+      // unmounts. Setting pausedRef first makes onDone a no-op.
+      pausedRef.current = true;
+      Speech.pause();
       Speech.stop();
-      soundRef.current?.unloadAsync();
+      const sound = soundRef.current;
       soundRef.current = null;
+      if (sound) {
+        void sound
+          .pauseAsync()
+          .catch(() => {})
+          .finally(() => sound.unloadAsync().catch(() => {}));
+      }
     };
   }, [text, audioUrl]);
+
+  // Pause when the screen blurs (back/quiz nav) or the parent forces
+  // pause (Skald modal). On return, resume automatically — but only
+  // if we were the ones who paused it. Manual Stop clears the flag in
+  // toggle(), so a user-paused track stays paused on focus regain.
+  useEffect(() => {
+    if (shouldAutoPause) {
+      if (!speaking) return;
+      wasPlayingBeforeAutoPauseRef.current = true;
+      if (audioUrl) {
+        soundRef.current?.pauseAsync();
+      } else {
+        Speech.pause();
+        pausedRef.current = true;
+      }
+      setSpeaking(false);
+      return;
+    }
+    if (!wasPlayingBeforeAutoPauseRef.current) return;
+    wasPlayingBeforeAutoPauseRef.current = false;
+    if (audioUrl) {
+      // startOrResumeAudio handles the loaded/unloaded fork and the
+      // post-finish replay case; calling it on resume is correct.
+      void startOrResumeAudio();
+      return;
+    }
+    if (pausedRef.current) {
+      Speech.resume();
+      pausedRef.current = false;
+      setSpeaking(true);
+    } else {
+      speakFromTts(cursorRef.current);
+    }
+    // We intentionally only react to shouldAutoPause edges; speaking is
+    // read via closure. Including it would re-run when we ourselves flip
+    // it, causing a feedback loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoPause]);
 
   function onAudioStatus(status: AVPlaybackStatus) {
     if (!status.isLoaded) return;
@@ -153,6 +221,9 @@ export function SpeakButton({ text, lessonId }: Props) {
   }
 
   async function toggle() {
+    // Any manual tap is the user taking control — drop the auto-resume
+    // intent so a deliberate Stop isn't undone by the next focus regain.
+    wasPlayingBeforeAutoPauseRef.current = false;
     if (audioUrl) {
       if (speaking) {
         await pauseAudio();

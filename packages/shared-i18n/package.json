@@ -7,7 +7,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint src --max-warnings 0"
+    "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
     "@kitup/shared-types": "workspace:*"

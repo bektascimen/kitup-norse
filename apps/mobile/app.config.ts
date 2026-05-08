@@ -17,6 +17,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.kitup.norse',
+    appleTeamId: '8PVDZ6B99N',
     usesAppleSignIn: true,
     entitlements: { 'com.apple.security.application-groups': ['group.com.kitup.norse'] },
   },
@@ -44,21 +45,13 @@ const config: ExpoConfig = {
     // device builds don't have those and the script fails the whole
     // build. Runtime crash reporting still works through initSentry()
     // + the DSN env var; only the source-map upload is skipped.
-    // Widget extension plugin disabled until appleTeamId is set + signing configured.
-    // Re-enable after replacing 'TEAMID' with your real Apple Developer team id.
-    // [
-    //   '@bacons/apple-targets',
-    //   {
-    //     appleTeamId: 'TEAMID',
-    //     extensions: [
-    //       {
-    //         name: 'TodayWidget',
-    //         bundleIdentifier: 'com.kitup.norse.TodayWidget',
-    //         entitlements: { 'com.apple.security.application-groups': ['group.com.kitup.norse'] },
-    //       },
-    //     ],
-    //   },
-    // ],
+    // Widget extension. v4 API: target Swift + entitlements live under
+    // `targets/widget/` with an `expo-target.config.js`. The plugin
+    // reads that folder during prebuild and links it as a separate
+    // Xcode target signed under `ios.appleTeamId`. App Group is mirrored
+    // from the host app's `ios.entitlements` so widget and app share
+    // the same `group.com.kitup.norse` UserDefaults suite.
+    '@bacons/apple-targets',
   ],
   experiments: { typedRoutes: true },
   extra: {

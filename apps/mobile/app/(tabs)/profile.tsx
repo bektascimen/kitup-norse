@@ -5,6 +5,7 @@ import { useT } from '../../features/i18n';
 import { useAuthStore } from '../../features/auth/store';
 import { useOnboarding, type Path } from '../../features/onboarding/store';
 import { useLearnerStats } from '../../features/stats/queries';
+import { BadgesSection } from '../../features/badges';
 import { palette, fontFamily, fontSize, space, tracking, radius } from '../../theme';
 import { MenuRow, MenuSectionLabel } from '../../components/atmospherics/MenuRow';
 
@@ -93,6 +94,8 @@ export default function Profile() {
 
       <MenuSectionLabel>{t('profile.section.standing')}</MenuSectionLabel>
       <StatGrid tiles={tiles} />
+
+      <BadgesSection />
 
       <MenuSectionLabel>{t('profile.section.journey')}</MenuSectionLabel>
       <MenuRow

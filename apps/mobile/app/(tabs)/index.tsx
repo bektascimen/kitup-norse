@@ -57,9 +57,11 @@ export default function Today() {
         title: t(todays.title_key),
         day: todays.day_number,
         totalDays: course.data.day_count,
+        streak: streak.data?.current_streak ?? 0,
+        lessonId: todays.id,
       });
     }
-  }, [course.data?.id, todays?.id]);
+  }, [course.data?.id, todays?.id, streak.data?.current_streak]);
 
   if (course.isLoading || lessons.isLoading || progress.isLoading) {
     return (
